@@ -1,6 +1,7 @@
 package com.rubyhuntersky.liftlog.vision
 
 data class LogDay(
-    val epoch: Long,
     val rounds: List<Round>
-)
+) {
+    val startEpoch: Long by lazy { rounds.minBy { it.epoch }!!.epoch }
+}
