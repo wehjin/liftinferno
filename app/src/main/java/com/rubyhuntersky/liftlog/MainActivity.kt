@@ -43,13 +43,7 @@ class MainActivity : AppCompatActivity() {
                 require(it is LoggingVision.Logging)
                 recyclerView.adapter = ChatterPartsAdapter(dialogParts(it))
                 movementButton.setOnClickListener {
-                    LoggingAction.AddMovement(
-                        Movement(
-                            Direction.Dips,
-                            Force.Lbs(130),
-                            Distance.Reps(10)
-                        )
-                    ).also(sendAction)
+                    AddMovementDialogFragment().show(supportFragmentManager, "add-movement")
                 }
             }
         }
