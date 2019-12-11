@@ -1,4 +1,4 @@
-package com.rubyhuntersky.liftlog.vision
+package com.rubyhuntersky.liftlog.story
 
 data class Round(
     val epoch: Long,

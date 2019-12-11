@@ -1,4 +1,4 @@
-package com.rubyhuntersky.liftlog.vision
+package com.rubyhuntersky.liftlog.story
 
 sealed class Force {
     data class Lbs(val value: Int) : Force() {

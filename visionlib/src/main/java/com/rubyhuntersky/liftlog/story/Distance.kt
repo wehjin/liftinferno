@@ -1,4 +1,4 @@
-package com.rubyhuntersky.liftlog.vision
+package com.rubyhuntersky.liftlog.story
 
 sealed class Distance {
     data class Reps(val count: Int) : Distance() {

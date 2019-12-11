@@ -1,4 +1,4 @@
-package com.rubyhuntersky.liftlog.vision
+package com.rubyhuntersky.liftlog.story
 
 data class MoveOption(
     val movement: Movement,

@@ -1,24 +1,24 @@
-package com.rubyhuntersky.liftlog.vision
+package com.rubyhuntersky.liftlog.story
 
 import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Test
 
-internal class MainVisionTest {
+internal class LoggingVisionTest {
     @Test
     fun liftLogExists() {
-        val vision = MainVision.Log(emptyList(), null, emptyList())
+        val vision = LoggingVision.Logging(emptyList(), null, emptyList())
         assertNotNull(vision)
     }
 
     @Test
     fun loadingFailedExists() {
-        val vision = MainVision.LoadFailed(reason = "Needs new encabulator.")
+        val vision = LoggingVision.LoadFailed(reason = "Needs new encabulator.")
         assertNotNull(vision)
     }
 
     @Test
     fun loadingExists() {
-        val vision = MainVision.Loading
+        val vision = LoggingVision.Loading
         assertNotNull(vision)
     }
 }

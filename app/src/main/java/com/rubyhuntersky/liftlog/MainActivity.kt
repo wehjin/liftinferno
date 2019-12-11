@@ -3,13 +3,17 @@ package com.rubyhuntersky.liftlog
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.rubyhuntersky.liftlog.Dialog.*
-import com.rubyhuntersky.liftlog.vision.*
+import com.rubyhuntersky.liftlog.Chatter.*
+import com.rubyhuntersky.liftlog.story.*
 import kotlinx.android.synthetic.main.activity_main.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.launch
 import java.util.*
-import java.util.concurrent.TimeUnit
 
-class Dialog {
+class Chatter {
     enum class Side { LEFT, RIGHT }
     enum class BubbleType { SOLO, TOP, MIDDLE, BOTTOM; }
 
@@ -21,9 +25,8 @@ class Dialog {
     }
 }
 
+@ExperimentalCoroutinesApi
 class MainActivity : AppCompatActivity() {
-
-    private val days = fetchDays()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,93 +36,60 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        renderJob = MainScope().launch {
+            val visions = loggingStory().openSubscription()
+            visions.consumeEach(this@MainActivity::render)
+        }
+    }
+
+    private fun render(vision: LoggingVision) {
+        require(vision is LoggingVision.Logging)
+        recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
+    }
+
+    private fun dialogParts(vision: LoggingVision.Logging): List<Part> {
+
+        val visionParts = vision.days
+            .sortedByDescending { it.startEpoch }
+            .flatMap { dialogParts(it).reversed() }
+
         val infernoParts = listOf(
             Part.Speaker("Inferno", Side.LEFT),
             Part.Bubble("Squats: Rest 34s", Side.LEFT, BubbleType.SOLO)
-        )
-        val dialogParts = listOf(Part.Guard) +
-                infernoParts.reversed() +
-                days.sortedByDescending { it.startEpoch }.flatMap {
-                    it.dialogParts().reversed()
-                } +
-                Part.Guard
-        recyclerView.adapter =
-            DialogPartsAdapter(dialogParts)
+        ).reversed()
+
+        return listOf(Part.Guard) + infernoParts + visionParts + Part.Guard
     }
 
-    private fun fetchDays(): List<LogDay> {
-        val now = Date()
-        val tenMinutesAgo = now.time - TimeUnit.MINUTES.toMillis(10)
-        return listOf(
-            LogDay(
-                rounds = listOf(
-                    Round(
-                        epoch = tenMinutesAgo,
-                        movements = listOf(
-                            Movement(
-                                direction = Direction.PullUps,
-                                force = Force.Lbs(110),
-                                distance = Distance.Reps(6)
-                            ),
-                            Movement(
-                                direction = Direction.Squats,
-                                force = Force.Lbs(110),
-                                distance = Distance.Reps(6)
-                            ),
-                            Movement(
-                                direction = Direction.Dips,
-                                force = Force.Lbs(110),
-                                distance = Distance.Reps(6)
-                            )
-                        )
-                    ),
-                    Round(
-                        epoch = tenMinutesAgo,
-                        movements = listOf(
-                            Movement(
-                                direction = Direction.PullUps,
-                                force = Force.Lbs(110),
-                                distance = Distance.Reps(6)
-                            ),
-                            Movement(
-                                direction = Direction.Squats,
-                                force = Force.Lbs(110),
-                                distance = Distance.Reps(6)
-                            ),
-                            Movement(
-                                direction = Direction.Dips,
-                                force = Force.Lbs(110),
-                                distance = Distance.Reps(6)
-                            )
-                        )
-                    )
-                )
-            )
-        )
-    }
 
-    private fun LogDay.dialogParts(): List<Part> {
-        val initial = listOf(Part.Timestamp(Date(startEpoch)) as Part)
-        return rounds.foldIndexed(initial) { i, sum, round ->
-            sum + round.dialogParts(i)
+    private fun dialogParts(logDay: LogDay): List<Part> {
+        val initial = listOf(Part.Timestamp(Date(logDay.startEpoch)) as Part)
+        return logDay.rounds.foldIndexed(initial) { i, sum, round ->
+            sum + dialogParts(round, i)
         }
     }
 
-    private fun Round.dialogParts(index: Int): List<Part> {
+    private fun dialogParts(round: Round, index: Int): List<Part> {
         val speaker = Part.Speaker("Round ${index + 1}", Side.RIGHT) as Part
-        return listOf(speaker) + movements.mapIndexed { i, movement ->
-            movement.dialogParts(i, movements.lastIndex)
+        return listOf(speaker) + round.movements.mapIndexed { i, movement ->
+            dialogParts(movement, i, round.movements.lastIndex)
         }
     }
 
-    private fun Movement.dialogParts(i: Int, last: Int): Part {
+    private fun dialogParts(movement: Movement, i: Int, last: Int): Part {
         val type = when {
             last <= 0 -> BubbleType.SOLO
             i == 0 -> BubbleType.TOP
             i == last -> BubbleType.BOTTOM
             else -> BubbleType.MIDDLE
         }
-        return Part.Bubble(this.toString(), Side.RIGHT, type)
+        return Part.Bubble(movement.toString(), Side.RIGHT, type)
     }
 
+    private lateinit var renderJob: Job
+
+    override fun onStop() {
+        renderJob.cancel()
+        super.onStop()
+    }
 }
