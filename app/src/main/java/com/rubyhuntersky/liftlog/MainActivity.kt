@@ -36,20 +36,29 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        val (subscribeVisions, sendAction, job) = loggingStory()
+        storyJob = job
         renderJob = MainScope().launch {
-            val visions = loggingStory().openSubscription()
-            visions.consumeEach(this@MainActivity::render)
+            subscribeVisions().consumeEach {
+                require(it is LoggingVision.Logging)
+                recyclerView.adapter = ChatterPartsAdapter(dialogParts(it))
+                movementButton.setOnClickListener {
+                    LoggingAction.AddMovement(
+                        Movement(
+                            Direction.Dips,
+                            Force.Lbs(130),
+                            Distance.Reps(10)
+                        )
+                    ).also(sendAction)
+                }
+            }
         }
     }
 
-    private fun render(vision: LoggingVision) {
-        require(vision is LoggingVision.Logging)
-        recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
-    }
+    private lateinit var storyJob: Job
 
     private fun dialogParts(vision: LoggingVision.Logging): List<Part> {
         val now = Date()
-
         val visionParts = vision.days
             .sortedByDescending { it.startTime }
             .flatMap { dialogParts(it, now).reversed() }
@@ -92,6 +101,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         renderJob.cancel()
+        storyJob.cancel()
         super.onStop()
     }
 }
