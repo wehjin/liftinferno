@@ -11,22 +11,37 @@ import androidx.recyclerview.widget.RecyclerView
 import kotlinx.android.synthetic.main.dialog_bubble.view.*
 import kotlinx.android.synthetic.main.dialog_speaker.view.*
 import kotlinx.android.synthetic.main.dialog_timestamp.view.*
+import java.util.*
 
 sealed class ChatterPartViewHolder(partView: View) : RecyclerView.ViewHolder(partView) {
 
     abstract fun update(part: Chatter.Part)
 
     class Timestamp(parent: ViewGroup) :
-        ChatterPartViewHolder(toView(parent, R.layout.dialog_timestamp)) {
+        ChatterPartViewHolder(view(parent, R.layout.dialog_timestamp)) {
 
         override fun update(part: Chatter.Part) {
             require(part is Chatter.Part.Timestamp)
-            itemView.timestampTextView.text = DateUtils.getRelativeTimeSpanString(part.date.time)
+            val date = datePart(part.date.time)
+            val today = datePart(part.now.time)
+            itemView.timestampTextView.text =
+                if (date == today) "Today"
+                else DateUtils.getRelativeTimeSpanString(date, today, DateUtils.DAY_IN_MILLIS)
+        }
+
+        private fun datePart(minTime: Long): Long {
+            return Calendar.getInstance().apply {
+                time = Date(minTime)
+                set(Calendar.HOUR_OF_DAY, 0)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }.time.time
         }
     }
 
     class Speaker(parent: ViewGroup) :
-        ChatterPartViewHolder(toView(parent, R.layout.dialog_speaker)) {
+        ChatterPartViewHolder(view(parent, R.layout.dialog_speaker)) {
         override fun update(part: Chatter.Part) {
             require(part is Chatter.Part.Speaker)
             itemView.speakerTextView.apply {
@@ -37,7 +52,7 @@ sealed class ChatterPartViewHolder(partView: View) : RecyclerView.ViewHolder(par
     }
 
     class Bubble(parent: ViewGroup) :
-        ChatterPartViewHolder(toView(parent, R.layout.dialog_bubble)) {
+        ChatterPartViewHolder(view(parent, R.layout.dialog_bubble)) {
         override fun update(part: Chatter.Part) {
             require(part is Chatter.Part.Bubble)
             itemView.bubbleTextView.apply {
@@ -61,12 +76,12 @@ sealed class ChatterPartViewHolder(partView: View) : RecyclerView.ViewHolder(par
     }
 
     class Guard(parent: ViewGroup) :
-        ChatterPartViewHolder(toView(parent, R.layout.dialog_guard)) {
+        ChatterPartViewHolder(view(parent, R.layout.dialog_guard)) {
         override fun update(part: Chatter.Part) = Unit
     }
 
     companion object {
-        fun toView(parent: ViewGroup, resId: Int): View =
+        private fun view(parent: ViewGroup, resId: Int): View =
             LayoutInflater.from(parent.context).inflate(resId, parent, false)
 
         private fun TextView.updateSide(side: Chatter.Side) {

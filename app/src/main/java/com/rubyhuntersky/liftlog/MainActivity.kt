@@ -18,7 +18,7 @@ class Chatter {
     enum class BubbleType { SOLO, TOP, MIDDLE, BOTTOM; }
 
     sealed class Part {
-        data class Timestamp(val date: Date) : Part()
+        data class Timestamp(val date: Date, val now: Date) : Part()
         data class Speaker(val name: String, val side: Side) : Part()
         data class Bubble(val text: String, val side: Side, val type: BubbleType) : Part()
         object Guard : Part()
@@ -48,10 +48,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dialogParts(vision: LoggingVision.Logging): List<Part> {
+        val now = Date()
 
         val visionParts = vision.days
-            .sortedByDescending { it.startEpoch }
-            .flatMap { dialogParts(it).reversed() }
+            .sortedByDescending { it.startTime }
+            .flatMap { dialogParts(it, now).reversed() }
 
         val infernoParts = listOf(
             Part.Speaker("Inferno", Side.LEFT),
@@ -62,8 +63,9 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun dialogParts(logDay: LogDay): List<Part> {
-        val initial = listOf(Part.Timestamp(Date(logDay.startEpoch)) as Part)
+    private fun dialogParts(logDay: LogDay, now: Date): List<Part> {
+        val startTime = logDay.startTime
+        val initial = listOf(Part.Timestamp(Date(startTime), now) as Part)
         return logDay.rounds.foldIndexed(initial) { i, sum, round ->
             sum + dialogParts(round, i)
         }
