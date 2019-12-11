@@ -8,4 +8,41 @@
         <item name="colorAccent">@color/colorAccent</item>
     </style>
 
+    <style name="DialogPart">
+        <item name="android:maxWidth">80pt</item>
+        <item name="android:layout_marginTop">4dp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
+
+    <style name="DialogPart.Timestamp">
+        <item name="android:textAppearance">@style/TextAppearance.AppCompat.Body2</item>
+    </style>
+
+    <style name="DialogPart.Speaker">
+        <item name="android:textAppearance">@style/TextAppearance.AppCompat.Body2</item>
+        <item name="android:layout_marginBottom">1dp</item>
+        <item name="android:layout_marginTop">8dp</item>
+        <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:layout_marginStart">8dp</item>
+    </style>
+
+    <style name="DialogPart.Bubble">
+        <item name="android:elevation">1dp</item>
+        <item name="android:textAppearance">@style/TextAppearance.AppCompat.Body1</item>
+        <item name="android:paddingStart">8dp</item>
+        <item name="android:paddingTop">4dp</item>
+        <item name="android:paddingEnd">8dp</item>
+        <item name="android:paddingBottom">4dp</item>
+        <item name="android:layout_marginTop">1dp</item>
+        <item name="android:layout_marginBottom">1dp</item>
+    </style>
+
+    <style name="DialogPart.Bubble.Top" />
+
+    <style name="DialogPart.Bubble.Middle" />
+
+    <style name="DialogPart.Bubble.Bottom">
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
+
 </resources>
