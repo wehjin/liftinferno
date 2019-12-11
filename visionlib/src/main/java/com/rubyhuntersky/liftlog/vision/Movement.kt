@@ -5,5 +5,5 @@ data class Movement(
     val force: Force,
     val distance: Distance
 ) {
-    override fun toString() = "${direction.name} $force × $distance)"
+    override fun toString() = "${direction.name} $force × $distance"
 }

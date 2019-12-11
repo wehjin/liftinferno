@@ -15,6 +15,7 @@
     </style>
 
     <style name="DialogPart.Timestamp">
+        <item name="android:maxWidth">100pt</item>
         <item name="android:textAppearance">@style/TextAppearance.AppCompat.Body2</item>
     </style>
 

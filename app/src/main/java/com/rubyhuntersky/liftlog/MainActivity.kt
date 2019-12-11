@@ -1,32 +1,17 @@
 package com.rubyhuntersky.liftlog
 
 import android.os.Bundle
-import android.util.Log
 import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.rubyhuntersky.liftlog.Dialog.*
-import com.rubyhuntersky.liftlog.Dialog.Part.Bubble
 import com.rubyhuntersky.liftlog.vision.*
+import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
 import java.util.concurrent.TimeUnit
 
 class Dialog {
     enum class Side { LEFT, RIGHT }
-    enum class BubbleType {
-        SOLO, TOP, MIDDLE, BOTTOM;
-
-        companion object {
-            fun <T> fromListIndex(list: List<T>, i: Int): BubbleType =
-                if (list.size <= 1) {
-                    SOLO
-                } else {
-                    when (i) {
-                        0 -> TOP
-                        list.lastIndex -> BOTTOM
-                        else -> MIDDLE
-                    }
-                }
-        }
-    }
+    enum class BubbleType { SOLO, TOP, MIDDLE, BOTTOM; }
 
     sealed class Part {
         data class Timestamp(val date: Date) : Part()
@@ -38,20 +23,71 @@ class Dialog {
 
 class MainActivity : AppCompatActivity() {
 
+    private val days = fetchDays()
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+        recyclerView.layoutManager = LinearLayoutManager(this).apply { reverseLayout = true }
+    }
 
+    override fun onStart() {
+        super.onStart()
+        val infernoParts = listOf(
+            Part.Speaker("Inferno", Side.LEFT),
+            Part.Bubble("Squats: Rest 34s", Side.LEFT, BubbleType.SOLO)
+        )
+        val dialogParts = listOf(Part.Guard) +
+                infernoParts.reversed() +
+                days.sortedByDescending { it.startEpoch }.flatMap {
+                    it.dialogParts().reversed()
+                } +
+                Part.Guard
+        recyclerView.adapter =
+            DialogPartsAdapter(dialogParts)
+    }
+
+    private fun fetchDays(): List<LogDay> {
         val now = Date()
         val tenMinutesAgo = now.time - TimeUnit.MINUTES.toMillis(10)
-        val days = listOf(
+        return listOf(
             LogDay(
                 rounds = listOf(
                     Round(
                         epoch = tenMinutesAgo,
                         movements = listOf(
                             Movement(
+                                direction = Direction.PullUps,
+                                force = Force.Lbs(110),
+                                distance = Distance.Reps(6)
+                            ),
+                            Movement(
                                 direction = Direction.Squats,
+                                force = Force.Lbs(110),
+                                distance = Distance.Reps(6)
+                            ),
+                            Movement(
+                                direction = Direction.Dips,
+                                force = Force.Lbs(110),
+                                distance = Distance.Reps(6)
+                            )
+                        )
+                    ),
+                    Round(
+                        epoch = tenMinutesAgo,
+                        movements = listOf(
+                            Movement(
+                                direction = Direction.PullUps,
+                                force = Force.Lbs(110),
+                                distance = Distance.Reps(6)
+                            ),
+                            Movement(
+                                direction = Direction.Squats,
+                                force = Force.Lbs(110),
+                                distance = Distance.Reps(6)
+                            ),
+                            Movement(
+                                direction = Direction.Dips,
                                 force = Force.Lbs(110),
                                 distance = Distance.Reps(6)
                             )
@@ -60,9 +96,6 @@ class MainActivity : AppCompatActivity() {
                 )
             )
         )
-        val dialogParts =
-            days.sortedByDescending { it.startEpoch }.flatMap { it.dialogParts().reversed() }
-        Log.d("LOGPARTS", dialogParts.toString())
     }
 
     private fun LogDay.dialogParts(): List<Part> {
@@ -86,7 +119,7 @@ class MainActivity : AppCompatActivity() {
             i == last -> BubbleType.BOTTOM
             else -> BubbleType.MIDDLE
         }
-        return Bubble(this.toString(), Side.RIGHT, type)
+        return Part.Bubble(this.toString(), Side.RIGHT, type)
     }
 
 }
