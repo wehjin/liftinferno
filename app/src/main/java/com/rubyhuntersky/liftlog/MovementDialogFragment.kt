@@ -9,12 +9,12 @@ import android.widget.PopupMenu
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.rubyhuntersky.liftlog.story.MovementAction
 import com.rubyhuntersky.liftlog.story.MovementVision
+import com.rubyhuntersky.liftlog.story.Story
 import kotlinx.android.synthetic.main.fragment_add_movement.view.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 
-
-class MovementDialogFragment : BottomSheetDialogFragment() {
+class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
 
     var storyId: Pair<String, Int>
         get() {
@@ -33,12 +33,18 @@ class MovementDialogFragment : BottomSheetDialogFragment() {
     @ExperimentalCoroutinesApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        rendering = renderStory(this, storyId, MainEdge) { vision, post ->
+        story = renderStory(this, storyId, MainEdge) { vision, post ->
             when (vision) {
-                is MovementVision.Adding -> {
+                is MovementVision.Interacting -> {
                     view?.let { view ->
-                        view.weightEditText.setText(vision.movement.force.value.toString())
-                        view.repsEditText.setText(vision.movement.distance.count.toString())
+                        view.weightEditText.render(vision.force?.toString() ?: "") {
+                            val lbs = it.toIntOrNull()
+                            post(MovementAction.SetForce(lbs))
+                        }
+                        view.repsEditText.render(vision.distance?.toString() ?: "") {
+                            val count = it.toIntOrNull()
+                            post(MovementAction.SetDistance(count))
+                        }
                         view.addButton.setOnClickListener {
                             post(MovementAction.Cancel)
                         }
@@ -49,7 +55,8 @@ class MovementDialogFragment : BottomSheetDialogFragment() {
         }
     }
 
-    private lateinit var rendering: Rendering<MovementVision, MovementAction>
+
+    private lateinit var story: () -> Story<MovementVision, MovementAction>?
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -69,7 +76,8 @@ class MovementDialogFragment : BottomSheetDialogFragment() {
         }
 
     override fun onDismiss(dialog: DialogInterface) {
-        rendering.story?.offer(MovementAction.Cancel)
+        story()?.offer(MovementAction.Cancel)
         super.onDismiss(dialog)
     }
+
 }

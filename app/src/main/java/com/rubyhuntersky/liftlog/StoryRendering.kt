@@ -34,17 +34,13 @@ fun <V : Any, A> renderStory(
     })
 }
 
-interface Rendering<V : Any, A> {
-    val story: Story<V, A>?
-}
-
 @ExperimentalCoroutinesApi
 fun <V : Any, A> renderStory(
     fragment: DialogFragment,
     storyId: Pair<String, Int>,
     edge: Edge,
     renderVision: (vision: V, post: (A) -> Unit) -> Unit
-): Rendering<V, A> {
+): () -> Story<V, A>? {
     var story: Story<V, A>? = null
     val channel = Channel<Boolean>(5)
     MainScope().launch {
@@ -79,7 +75,5 @@ fun <V : Any, A> renderStory(
             channel.offer(false)
         }
     })
-    return object : Rendering<V, A> {
-        override val story: Story<V, A>? get() = story
-    }
+    return { story }
 }

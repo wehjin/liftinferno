@@ -4,23 +4,39 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 
 sealed class MovementVision {
-    data class Adding(val movement: Movement) : MovementVision()
+    data class Interacting(
+        val force: Int?,
+        val distance: Int?,
+        val direction: Direction?
+    ) : MovementVision()
+
     data class Dismissed(val movement: Movement?) : MovementVision()
 }
 
 sealed class MovementAction {
     object Cancel : MovementAction()
+    data class SetForce(val force: Int?) : MovementAction()
+    data class SetDistance(val distance: Int?) : MovementAction()
 }
 
-
-@Suppress("UNUSED_PARAMETER")
 private fun revise1(
-    vision: MovementVision.Adding,
+    vision: MovementVision.Interacting,
+    action: MovementAction.SetForce,
+    edge: Edge
+): MovementVision = vision.copy(force = action.force)
+
+private fun revise1(
+    vision: MovementVision.Interacting,
+    action: MovementAction.SetDistance,
+    edge: Edge
+): MovementVision = vision.copy(distance = action.distance)
+
+private fun revise1(
+    vision: MovementVision.Interacting,
     action: MovementAction.Cancel,
     edge: Edge
 ): MovementVision = MovementVision.Dismissed(null)
 
-@Suppress("UNUSED_PARAMETER")
 private fun revise1(
     vision: MovementVision.Dismissed,
     action: MovementAction.Cancel,
@@ -32,7 +48,11 @@ private fun reviseMovement(
     action: MovementAction,
     edge: Edge
 ): MovementVision = when {
-    vision is MovementVision.Adding
+    vision is MovementVision.Interacting
+            && action is MovementAction.SetForce -> revise1(vision, action, edge)
+    vision is MovementVision.Interacting
+            && action is MovementAction.SetDistance -> revise1(vision, action, edge)
+    vision is MovementVision.Interacting
             && action is MovementAction.Cancel -> revise1(vision, action, edge)
     vision is MovementVision.Dismissed
             && action is MovementAction.Cancel -> revise1(vision, action, edge)
@@ -44,7 +64,11 @@ private fun reviseMovement(
 fun movementStory(movement: Movement, edge: Edge): Story<MovementVision, MovementAction> =
     storyOf(
         name = "add-movement",
-        initial = MovementVision.Adding(movement) as MovementVision,
+        initial = MovementVision.Interacting(
+            force = movement.force.value,
+            distance = movement.distance.count,
+            direction = movement.direction
+        ) as MovementVision,
         revise = ::reviseMovement,
         edge = edge
     )
