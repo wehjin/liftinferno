@@ -4,13 +4,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-
 sealed class LoggingVision : Revisable<LoggingVision, LoggingAction> {
 
     data class Logging(val days: List<LogDay>, val options: List<MoveOption>) : LoggingVision() {
-        fun buildAddAction(): LoggingAction = LoggingAction.AddMovement
-        override fun revise(action: LoggingAction): LoggingVision {
+
+        fun buildAddMovementAction(): LoggingAction = LoggingAction.AddMovement
+
+        @ExperimentalCoroutinesApi
+        override fun revise(action: LoggingAction, edge: Edge): LoggingVision {
             require(action is LoggingAction.AddMovement)
+            val movement = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
+            edge.project(movementStory(movement, edge)) { it is MovementVision.Dismissed }
             return this
         }
     }
@@ -21,8 +25,9 @@ sealed class LoggingAction {
 }
 
 @ExperimentalCoroutinesApi
-fun loggingStory(): Story<LoggingVision, LoggingAction> {
-    return storyOf(initial = LoggingVision.Logging(fetchDays(), emptyList()))
+fun loggingStory(edge: Edge): Story<LoggingVision, LoggingAction> {
+    val initial = LoggingVision.Logging(fetchDays(), emptyList())
+    return storyOf("logging", initial, edge)
 }
 
 private fun fetchDays(): List<LogDay> {

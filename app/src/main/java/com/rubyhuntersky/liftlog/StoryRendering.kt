@@ -11,7 +11,7 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.launch
 
 @ExperimentalCoroutinesApi
-fun <V, A> renderStory(
+fun <V : Any, A> renderStory(
     story: Story<V, A>,
     lifecycle: Lifecycle,
     renderVision: (vision: V, post: (A) -> Unit) -> Unit

@@ -7,6 +7,7 @@ import com.rubyhuntersky.liftlog.Chatter.*
 import com.rubyhuntersky.liftlog.story.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import java.util.*
 
 class Chatter {
@@ -21,14 +22,17 @@ class Chatter {
     }
 }
 
+@FlowPreview
 @ExperimentalCoroutinesApi
-private val loggingStory = loggingStory()
+private val loggingStory = loggingStory(MainEdge)
 
 @ExperimentalCoroutinesApi
 class MainActivity : AppCompatActivity() {
 
+    @FlowPreview
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        MainEdge.activeFragmentManager = this.supportFragmentManager
         setContentView(R.layout.activity_main)
         recyclerView.layoutManager = LinearLayoutManager(this).apply { reverseLayout = true }
         renderStory(loggingStory, lifecycle, this::renderVision)
@@ -38,8 +42,7 @@ class MainActivity : AppCompatActivity() {
         require(vision is LoggingVision.Logging)
         recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
         movementButton.setOnClickListener {
-            post(vision.buildAddAction())
-            AddMovementDialogFragment().show(supportFragmentManager, "add-movement")
+            post(vision.buildAddMovementAction())
         }
     }
 
