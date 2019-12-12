@@ -17,7 +17,14 @@ sealed class MovementAction {
     object Cancel : MovementAction()
     data class SetForce(val force: Int?) : MovementAction()
     data class SetDistance(val distance: Int?) : MovementAction()
+    data class SetDirection(val direction: Direction?) : MovementAction()
 }
+
+private fun revise1(
+    vision: MovementVision.Interacting,
+    action: MovementAction.SetDirection,
+    edge: Edge
+): MovementVision = vision.copy(direction = action.direction)
 
 private fun revise1(
     vision: MovementVision.Interacting,
@@ -52,6 +59,8 @@ private fun reviseMovement(
             && action is MovementAction.SetForce -> revise1(vision, action, edge)
     vision is MovementVision.Interacting
             && action is MovementAction.SetDistance -> revise1(vision, action, edge)
+    vision is MovementVision.Interacting
+            && action is MovementAction.SetDirection -> revise1(vision, action, edge)
     vision is MovementVision.Interacting
             && action is MovementAction.Cancel -> revise1(vision, action, edge)
     vision is MovementVision.Dismissed

@@ -6,7 +6,9 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.PopupMenu
+import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
+import com.rubyhuntersky.liftlog.story.Direction
 import com.rubyhuntersky.liftlog.story.MovementAction
 import com.rubyhuntersky.liftlog.story.MovementVision
 import com.rubyhuntersky.liftlog.story.Story
@@ -37,6 +39,10 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
             when (vision) {
                 is MovementVision.Interacting -> {
                     view?.let { view ->
+
+                        view.directionTextView.renderDirection(
+                            vision.direction ?: Direction.PullUps
+                        ) { post(MovementAction.SetDirection(it)) }
                         view.weightEditText.render(vision.force?.toString() ?: "") {
                             val lbs = it.toIntOrNull()
                             post(MovementAction.SetForce(lbs))
@@ -55,6 +61,15 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
         }
     }
 
+    private fun TextView.renderDirection(direction: Direction, onPicked: ((Direction) -> Unit)?) {
+        val string = getString(stringRes(direction))
+        if (text != string) {
+            text = string
+        }
+        onDirectionPicked = onPicked
+    }
+
+    private var onDirectionPicked: ((direction: Direction) -> Unit)? = null
 
     private lateinit var story: () -> Story<MovementVision, MovementAction>?
 
@@ -64,16 +79,37 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
         savedInstanceState: Bundle?
     ): View? = inflater.inflate(R.layout.fragment_add_movement, container, false)
         .also { view ->
-            view.movementTextView.setOnClickListener { anchor ->
-                PopupMenu(context, anchor).also {
-                    it.menuInflater.inflate(R.menu.menu_pick_motion, it.menu)
-                    it.setOnMenuItemClickListener {
-                        view.movementTextView.text = it.title
+            view.directionTextView.setOnClickListener { anchor ->
+                PopupMenu(context, anchor).also { menu ->
+                    menu.menuInflater.inflate(R.menu.menu_pick_motion, menu.menu)
+                    menu.setOnMenuItemClickListener {
+                        val direction = direction(it.itemId)
+                        view.directionTextView.text = getString(stringRes(direction))
+                        onDirectionPicked?.invoke(direction)
                         true
                     }
                 }.show()
             }
         }
+
+    private fun direction(itemId: Int): Direction = when (itemId) {
+        R.id.pick_pullups -> Direction.PullUps
+        R.id.pick_squats -> Direction.Squats
+        R.id.pick_dips -> Direction.Dips
+        R.id.pick_hinges -> Direction.Hinges
+        R.id.pick_pushups -> Direction.PushUps
+        R.id.pick_rows -> Direction.Rows
+        else -> TODO()
+    }
+
+    private fun stringRes(direction: Direction): Int = when (direction) {
+        Direction.PullUps -> R.string.pullups
+        Direction.Squats -> R.string.squats
+        Direction.Dips -> R.string.dips
+        Direction.Hinges -> R.string.hinges
+        Direction.PushUps -> R.string.pushups
+        Direction.Rows -> R.string.rows
+    }
 
     override fun onDismiss(dialog: DialogInterface) {
         story()?.offer(MovementAction.Cancel)

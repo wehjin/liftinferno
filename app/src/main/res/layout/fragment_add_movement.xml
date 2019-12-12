@@ -34,7 +34,7 @@
         android:layout_height="16dp" />
 
     <TextView
-        android:id="@+id/movementTextView"
+        android:id="@+id/directionTextView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="?attr/selectableItemBackground"

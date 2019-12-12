@@ -1,9 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
     <item
-        android:id="@+id/pick_squats"
-        android:title="Squats" />
-    <item
         android:id="@+id/pick_pullups"
-        android:title="Pullups" />
+        android:title="@string/pullups" />
+    <item
+        android:id="@+id/pick_squats"
+        android:title="@string/squats" />
+    <item
+        android:id="@+id/pick_dips"
+        android:title="@string/dips" />
+    <item
+        android:id="@+id/pick_hinges"
+        android:title="@string/hinges" />
+    <item
+        android:id="@+id/pick_pushups"
+        android:title="@string/pushups" />
+    <item
+        android:id="@+id/pick_rows"
+        android:title="@string/rows" />
 </menu>
