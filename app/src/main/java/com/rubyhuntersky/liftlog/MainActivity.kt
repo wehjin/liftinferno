@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity() {
         MainEdge.activeFragmentManager = this.supportFragmentManager
         setContentView(R.layout.activity_main)
         recyclerView.layoutManager = LinearLayoutManager(this).apply { reverseLayout = true }
-        renderStory(loggingStory, lifecycle, this::renderVision)
+        renderStory(lifecycle, loggingStory, this::renderVision)
     }
 
     private fun renderVision(vision: LoggingVision, post: (LoggingAction) -> Unit) {

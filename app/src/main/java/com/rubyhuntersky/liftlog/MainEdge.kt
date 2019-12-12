@@ -83,7 +83,7 @@ object MainEdge : Edge {
         }
     }
 
-    fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *>?>) {
+    override fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *>?>) {
         msgs.offer(Msg.FindStory(id, receiveChannel))
     }
 }

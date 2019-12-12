@@ -2,10 +2,7 @@ package com.rubyhuntersky.liftlog.story
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ConflatedBroadcastChannel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.consumeEach
+import kotlinx.coroutines.channels.*
 import kotlinx.coroutines.launch
 
 interface Story<out V : Any, in A> {
@@ -16,6 +13,7 @@ interface Story<out V : Any, in A> {
 
 interface Edge {
     fun <V : Any, A> project(story: Story<V, A>, isEnd: (Any) -> Boolean)
+    fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *>?>)
 }
 
 fun <V : Any, A> fallbackRevision(vision: V, action: A): V {

@@ -1,11 +1,14 @@
 package com.rubyhuntersky.liftlog.story
 
 sealed class Distance {
-    data class Reps(val count: Int) : Distance() {
+
+    abstract val count: Int
+
+    data class Reps(override val count: Int) : Distance() {
         override fun toString() = "$count"
     }
 
-    data class Time(val seconds: Int) : Distance() {
-        override fun toString() = "${seconds}s"
+    data class Seconds(override val count: Int) : Distance() {
+        override fun toString() = "${count}s"
     }
 }

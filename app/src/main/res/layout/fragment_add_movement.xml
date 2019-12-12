@@ -21,6 +21,7 @@
             android:textAppearance="@style/TextAppearance.MaterialComponents.Headline4" />
 
         <com.google.android.material.button.MaterialButton
+            android:id="@+id/addButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="end"
@@ -54,6 +55,7 @@
         android:hint="Weight">
 
         <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/weightEditText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number" />
@@ -70,6 +72,7 @@
         android:hint="Reps">
 
         <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/repsEditText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:inputType="number" />

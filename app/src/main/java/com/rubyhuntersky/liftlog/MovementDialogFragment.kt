@@ -9,12 +9,9 @@ import android.widget.PopupMenu
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.rubyhuntersky.liftlog.story.MovementAction
 import com.rubyhuntersky.liftlog.story.MovementVision
-import com.rubyhuntersky.liftlog.story.Story
 import kotlinx.android.synthetic.main.fragment_add_movement.view.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.FlowPreview
 
 
 class MovementDialogFragment : BottomSheetDialogFragment() {
@@ -32,39 +29,47 @@ class MovementDialogFragment : BottomSheetDialogFragment() {
             }
         }
 
-    private var story: Story<MovementVision, MovementAction>? = null
-
+    @FlowPreview
     @ExperimentalCoroutinesApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        MainScope().launch {
-            val result = Channel<Story<*, *>?>()
-                .also { MainEdge.findStory(storyId, it) }
-                .receive()
-            story = result as? Story<MovementVision, MovementAction>
+        rendering = renderStory(this, storyId, MainEdge) { vision, post ->
+            when (vision) {
+                is MovementVision.Adding -> {
+                    view?.let { view ->
+                        view.weightEditText.setText(vision.movement.force.value.toString())
+                        view.repsEditText.setText(vision.movement.distance.count.toString())
+                        view.addButton.setOnClickListener {
+                            post(MovementAction.Cancel)
+                        }
+                    }
+                }
+                is MovementVision.Dismissed -> dismiss()
+            }
         }
     }
+
+    private lateinit var rendering: Rendering<MovementVision, MovementAction>
 
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? = inflater.inflate(R.layout.fragment_add_movement, container, false).also { view ->
-        view.movementTextView.setOnClickListener { anchor ->
-            PopupMenu(this.context, anchor)
-                .also {
+    ): View? = inflater.inflate(R.layout.fragment_add_movement, container, false)
+        .also { view ->
+            view.movementTextView.setOnClickListener { anchor ->
+                PopupMenu(context, anchor).also {
                     it.menuInflater.inflate(R.menu.menu_pick_motion, it.menu)
                     it.setOnMenuItemClickListener {
                         view.movementTextView.text = it.title
                         true
                     }
-                }
-                .show()
+                }.show()
+            }
         }
-    }
 
     override fun onDismiss(dialog: DialogInterface) {
-        story!!.offer(MovementAction.Cancel)
+        rendering.story?.offer(MovementAction.Cancel)
         super.onDismiss(dialog)
     }
 }
