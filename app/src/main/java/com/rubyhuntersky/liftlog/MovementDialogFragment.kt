@@ -40,9 +40,9 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
                 is MovementVision.Interacting -> {
                     view?.let { view ->
 
-                        view.directionTextView.renderDirection(
-                            vision.direction ?: Direction.PullUps
-                        ) { post(MovementAction.SetDirection(it)) }
+                        view.directionTextView.renderDirection(vision.direction) {
+                            post(MovementAction.SetDirection(it))
+                        }
                         view.weightEditText.render(vision.force?.toString() ?: "") {
                             val lbs = it.toIntOrNull()
                             post(MovementAction.SetForce(lbs))
@@ -51,9 +51,12 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
                             val count = it.toIntOrNull()
                             post(MovementAction.SetDistance(count))
                         }
-                        view.addButton.setOnClickListener {
-                            post(MovementAction.Cancel)
-                        }
+                        view.addButton.render(
+                            onClick = if (vision.isReadyToAdd) {
+                                val function = { post(MovementAction.Cancel) }
+                                function
+                            } else null
+                        )
                     }
                 }
                 is MovementVision.Dismissed -> dismiss()

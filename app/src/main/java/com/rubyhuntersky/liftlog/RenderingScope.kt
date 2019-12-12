@@ -2,6 +2,7 @@ package com.rubyhuntersky.liftlog
 
 import android.text.Editable
 import android.text.TextWatcher
+import android.widget.Button
 import android.widget.EditText
 
 interface RenderingScope {
@@ -29,6 +30,16 @@ interface RenderingScope {
         }.let {
             addTextChangedListener(it)
             setTag(R.id.text_watcher_key, it)
+        }
+    }
+
+    fun Button.render(onClick: (() -> Unit)?) {
+        if (onClick == null) {
+            isEnabled = false
+            setOnClickListener(null)
+        } else {
+            isEnabled = true
+            setOnClickListener { onClick() }
         }
     }
 }
