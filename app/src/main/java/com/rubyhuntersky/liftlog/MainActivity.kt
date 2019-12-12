@@ -7,10 +7,6 @@ import com.rubyhuntersky.liftlog.Chatter.*
 import com.rubyhuntersky.liftlog.story.*
 import kotlinx.android.synthetic.main.activity_main.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.launch
 import java.util.*
 
 class Chatter {
@@ -26,30 +22,25 @@ class Chatter {
 }
 
 @ExperimentalCoroutinesApi
+private val loggingStory = loggingStory()
+
+@ExperimentalCoroutinesApi
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         recyclerView.layoutManager = LinearLayoutManager(this).apply { reverseLayout = true }
+        renderStory(loggingStory, lifecycle, this::renderVision)
     }
 
-    override fun onStart() {
-        super.onStart()
-        val (subscribeVisions, sendAction, job) = loggingStory()
-        storyJob = job
-        renderJob = MainScope().launch {
-            subscribeVisions().consumeEach {
-                require(it is LoggingVision.Logging)
-                recyclerView.adapter = ChatterPartsAdapter(dialogParts(it))
-                movementButton.setOnClickListener {
-                    AddMovementDialogFragment().show(supportFragmentManager, "add-movement")
-                }
-            }
+    private fun renderVision(vision: LoggingVision) {
+        require(vision is LoggingVision.Logging)
+        recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
+        movementButton.setOnClickListener {
+            AddMovementDialogFragment().show(supportFragmentManager, "add-movement")
         }
     }
-
-    private lateinit var storyJob: Job
 
     private fun dialogParts(vision: LoggingVision.Logging): List<Part> {
         val now = Date()
@@ -89,13 +80,5 @@ class MainActivity : AppCompatActivity() {
             else -> BubbleType.MIDDLE
         }
         return Part.Bubble(movement.toString(), Side.RIGHT, type)
-    }
-
-    private lateinit var renderJob: Job
-
-    override fun onStop() {
-        renderJob.cancel()
-        storyJob.cancel()
-        super.onStop()
     }
 }
