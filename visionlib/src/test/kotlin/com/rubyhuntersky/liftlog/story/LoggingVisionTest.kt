@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 internal class LoggingVisionTest {
     @Test
     fun liftLogExists() {
-        val vision = LoggingVision.Logging(emptyList(), emptyList())
+        val vision = LoggingVision.Loaded(emptyList(), emptyList())
         assertNotNull(vision)
     }
 

@@ -39,14 +39,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun renderVision(vision: LoggingVision, post: (LoggingAction) -> Unit) {
-        require(vision is LoggingVision.Logging)
+        require(vision is LoggingVision.Loaded)
         recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
         movementButton.setOnClickListener {
             post(vision.buildAddMovementAction())
         }
     }
 
-    private fun dialogParts(vision: LoggingVision.Logging): List<Part> {
+    private fun dialogParts(vision: LoggingVision.Loaded): List<Part> {
         val now = Date()
         val visionParts = vision.days
             .sortedByDescending { it.startTime }

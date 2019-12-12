@@ -4,19 +4,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-sealed class LoggingVision : Revisable<LoggingVision, LoggingAction> {
-
-    data class Logging(val days: List<LogDay>, val options: List<MoveOption>) : LoggingVision() {
-
+sealed class LoggingVision {
+    data class Loaded(
+        val days: List<LogDay>,
+        val options: List<MoveOption>
+    ) : LoggingVision() {
         fun buildAddMovementAction(): LoggingAction = LoggingAction.AddMovement
-
-        @ExperimentalCoroutinesApi
-        override fun revise(action: LoggingAction, edge: Edge): LoggingVision {
-            require(action is LoggingAction.AddMovement)
-            val movement = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
-            edge.project(movementStory(movement, edge)) { it is MovementVision.Dismissed }
-            return this
-        }
     }
 }
 
@@ -25,9 +18,31 @@ sealed class LoggingAction {
 }
 
 @ExperimentalCoroutinesApi
+private fun revise1(
+    vision: LoggingVision.Loaded,
+    @Suppress("UNUSED_PARAMETER") action: LoggingAction.AddMovement,
+    edge: Edge
+): LoggingVision {
+    val movement = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
+    edge.project(movementStory(movement, edge)) { it is MovementVision.Dismissed }
+    return vision
+}
+
+@ExperimentalCoroutinesApi
+private fun reviseLogging(
+    vision: LoggingVision,
+    action: LoggingAction,
+    edge: Edge
+): LoggingVision = when {
+    vision is LoggingVision.Loaded
+            && action is LoggingAction.AddMovement -> revise1(vision, action, edge)
+    else -> fallbackRevision(vision, action)
+}
+
+@ExperimentalCoroutinesApi
 fun loggingStory(edge: Edge): Story<LoggingVision, LoggingAction> {
-    val initial = LoggingVision.Logging(fetchDays(), emptyList())
-    return storyOf("logging", initial, edge)
+    val initial = LoggingVision.Loaded(fetchDays(), emptyList())
+    return storyOf("logging", initial, ::reviseLogging, edge)
 }
 
 private fun fetchDays(): List<LogDay> {

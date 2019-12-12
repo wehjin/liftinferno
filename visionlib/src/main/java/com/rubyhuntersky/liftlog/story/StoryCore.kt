@@ -14,32 +14,29 @@ interface Story<out V : Any, in A> {
     fun offer(action: A)
 }
 
-interface Revisable<out V, in A> {
-    fun revise(action: A, edge: Edge): V
-}
-
 interface Edge {
     fun <V : Any, A> project(story: Story<V, A>, isEnd: (Any) -> Boolean)
 }
 
+fun <V : Any, A> fallbackRevision(vision: V, action: A): V {
+    println("No revision case for $action x $vision")
+    return vision
+}
+
 @ExperimentalCoroutinesApi
-fun <V, A> storyOf(name: String, initial: V, edge: Edge): Story<V, A> where V : Revisable<V, A> {
+fun <V : Any, A> storyOf(
+    name: String,
+    initial: V,
+    revise: (V, A, Edge) -> V,
+    edge: Edge
+): Story<V, A> {
     val visions = ConflatedBroadcastChannel(initial)
     val actions = Channel<A>(10)
     GlobalScope.launch {
-        try {
-            println("Story/$name launched")
-            actions.consumeEach { action ->
-                visions.value.revise(action, edge).also {
-                    visions.offer(it)
-                    println("Story/$name vision: $it")
-                }
-            }
-            println("Story/$name ended1")
-            visions.close()
-            println("Story/$name ended2")
-        } catch (e: Throwable) {
-            println("Story/$name threw $e")
+        println("Story/$name launched")
+        actions.consumeEach { action ->
+            revise(visions.value, action, edge).also { visions.send(it) }
+            println("Story/$name vision: ${visions.value}")
         }
     }
     return object : Story<V, A> {
