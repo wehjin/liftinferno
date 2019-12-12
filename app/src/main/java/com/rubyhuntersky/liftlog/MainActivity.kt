@@ -34,10 +34,11 @@ class MainActivity : AppCompatActivity() {
         renderStory(loggingStory, lifecycle, this::renderVision)
     }
 
-    private fun renderVision(vision: LoggingVision) {
+    private fun renderVision(vision: LoggingVision, post: (LoggingAction) -> Unit) {
         require(vision is LoggingVision.Logging)
         recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
         movementButton.setOnClickListener {
+            post(vision.buildAddAction())
             AddMovementDialogFragment().show(supportFragmentManager, "add-movement")
         }
     }
