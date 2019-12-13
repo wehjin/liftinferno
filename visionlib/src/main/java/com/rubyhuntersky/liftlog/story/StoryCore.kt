@@ -2,9 +2,6 @@ package com.rubyhuntersky.liftlog.story
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.*
-import java.lang.Thread.sleep
-import java.net.URL
-import kotlin.random.Random
 
 interface Story<out V : Any, in A> {
     val name: String
@@ -49,156 +46,150 @@ fun <V : Any, A> storyOf(
     }
 }
 
-interface WishParams
+data class WishId(val name: String, val number: Int) {
+    override fun toString() = "$name-${number.toString(16)}"
+}
 
-data class WishId(val name: String, val number: Int)
-
-interface Parameterized<P> {
-    val params: P
+interface Parameterized<P : Any> {
     val paramsClass: Class<P>
+    val params: P
 }
 
-interface Actionable<T, A> {
-    val resultClass: Class<T>
-    val toAction: (Result<T>) -> A
+interface Actionable<R, A> {
+    val resultClass: Class<R>
     val actionClass: Class<A>
+    val resultToAction: (Result<R>) -> A
 }
 
-sealed class Wish<T> {
-    abstract val id: WishId
-
-    data class Forget(override val id: WishId) : Wish<Void>()
-
-    data class Fetch<P : Any, T, A>(
-        override val id: WishId,
-        override val params: P,
-        override val paramsClass: Class<P>,
-        override val resultClass: Class<T>,
-        override val toAction: (Result<T>) -> A,
-        override val actionClass: Class<A>
-    ) : Wish<T>(), Parameterized<P>, Actionable<T, A> {
-
-        lateinit var sendAction: (A) -> Unit
-
-        fun sendSuccess(value: Any) = sendResult(Result.success(resultClass.cast(value)))
-        fun sendFailure(e: Throwable) = sendResult(Result.failure(e))
-
-        private fun sendResult(result: Result<T>) = sendAction(toAction(result))
-    }
+interface Fetcher<P : Any, R : Any> {
+    val paramsClass: Class<P>
+    val resultClass: Class<R>
+    val paramsToResult: (P) -> R
 }
 
-sealed class WishService<P, T> {
+sealed class WishService<P : Any, R : Any> {
     abstract val name: String
     abstract val paramsClass: Class<P>
-    abstract val resultClass: Class<T>
-    abstract val perform: (P) -> T
+    abstract val resultClass: Class<R>
 
-    data class Fetch<P : Any, T : Any>(
+    data class Fetch<P : Any, R : Any>(
         override val name: String,
         override val paramsClass: Class<P>,
-        override val resultClass: Class<T>,
-        override val perform: (P) -> T
-    ) : WishService<P, T>() {
+        override val resultClass: Class<R>,
+        override val paramsToResult: (P) -> R
+    ) : WishService<P, R>(), Fetcher<P, R>
+}
 
-        fun performOnAny(params: Any): T = perform(paramsClass.cast(params))
+sealed class Wish<T : Any> {
+
+    abstract val id: WishId
+
+    data class Forget(override val id: WishId) : Wish<Void>() {
+        fun toWill() = Will.Forget(this)
+    }
+
+    data class Fetch<P : Any, R : Any, A : Any>(
+        val service: WishService.Fetch<P, R>,
+        val number: Int,
+        override val params: P,
+        override val actionClass: Class<A>,
+        override val resultToAction: (Result<R>) -> A
+    ) : Wish<R>(), Parameterized<P>, Fetcher<P, R>, Actionable<R, A> {
+
+        override val id by lazy { WishId(service.name, number) }
+        override val paramsClass: Class<P> = service.paramsClass
+        override val resultClass: Class<R> = service.resultClass
+        override val paramsToResult = service.paramsToResult
+
+        fun action(): A {
+            val result = try {
+                Result.success(paramsToResult.invoke(params))
+            } catch (e: Throwable) {
+                Result.failure<R>(e)
+            }
+            return resultToAction(result)
+        }
+
+        fun toWill(sendAction: (A) -> Unit) = Will.Fetch(this, sendAction)
     }
 }
 
-class WishWell {
+sealed class Will<P : Any, R : Any, A : Any>(val wishId: WishId) {
 
+    val name: String
+        get() = wishId.name
+
+    data class Forget(
+        val wish: Wish.Forget
+    ) : Will<Void, Void, Void>(wish.id)
+
+    data class Fetch<P : Any, R : Any, A : Any>(
+        val wish: Wish.Fetch<P, R, A>,
+        val sendAction: (A) -> Unit
+    ) : Will<P, R, A>(wish.id) {
+
+        fun fulfill(checkSend: ((A) -> Boolean)) {
+            wish.action().let {
+                if (checkSend(it)) {
+                    sendAction(it)
+                }
+            }
+        }
+    }
+}
+
+
+@ExperimentalCoroutinesApi
+class WishWell : CoroutineScope by GlobalScope {
     private sealed class Msg {
-        data class AddService(val service: WishService<*, *>) : Msg()
-        data class AddWish(val wish: Wish<*>) : Msg()
-        data class DropJob(val wishId: WishId) : Msg()
+        data class AddWill(val will: Will<*, *, *>) : Msg()
+        data class DropWill(val wishId: WishId) : Msg()
     }
 
-    private val msgChannel = Channel<Msg>(10)
+    sealed class Rpt {
+        data class DroppedWish(val wishId: WishId) : Rpt()
+    }
 
-    @ExperimentalCoroutinesApi
-    private val msgJob = GlobalScope.launch {
-        val services = mutableMapOf<String, WishService<*, *>>()
+    private val msgs = Channel<Msg>(10)
+    private val rpts = BroadcastChannel<Rpt>(10)
+
+    private val job = launch {
         val jobs = mutableMapOf<WishId, Job>()
-        msgChannel.consumeEach { msg ->
+        for (msg in msgs) {
             when (msg) {
-                is Msg.AddService -> {
-                    services[msg.service.name] = msg.service
-                }
-                is Msg.AddWish -> {
-                    val (wish) = msg
-                    jobs.remove(wish.id)?.apply { cancel() }
-                    when (wish) {
-                        is Wish.Forget -> Unit
-                        is Wish.Fetch<*, *, *> -> {
-                            services[wish.id.name]?.let { service ->
-                                require(service is WishService.Fetch<*, *>)
-                                jobs[wish.id] = startJob(service, wish)
+                is Msg.AddWill -> {
+                    val will = msg.will
+                    jobs.remove(will.wishId)?.apply { cancel() }
+                    when (will) {
+                        is Will.Forget -> Unit
+                        is Will.Fetch<*, *, *> -> {
+                            val ready = Channel<Unit>(1)
+                            jobs[will.wishId] = launch {
+                                ready.receive()
+                                will.fulfill {
+                                    if (this.isActive) {
+                                        msgs.sendBlocking(Msg.DropWill(will.wishId))
+                                        true
+                                    } else false
+                                }
                             }
+                            ready.send(Unit)
                         }
                     }
                 }
-                is Msg.DropJob -> {
+                is Msg.DropWill -> {
                     jobs.remove(msg.wishId)
+                    rpts.send(Rpt.DroppedWish(msg.wishId))
                 }
             }
         }
     }
 
-    private fun startJob(
-        service: WishService.Fetch<*, *>,
-        wish: Wish.Fetch<*, *, *>
-    ): Job = GlobalScope.launch {
-
-        // TODO apply service to wish.
-        val result = try {
-            Result.success(service.performOnAny(wish.params))
-        } catch (e: Throwable) {
-            Result.failure<Any>(e)
-        }
-        if (isActive) {
-            msgChannel.sendBlocking(Msg.DropJob(wish.id))
-            result.fold(wish::sendSuccess, wish::sendFailure)
-        }
+    fun addWill(will: Will<*, *, *>) {
+        msgs.offer(Msg.AddWill(will))
     }
 
-    fun add(service: WishService<*, *>) {
-        msgChannel.offer(Msg.AddService(service))
-    }
+    fun reports(): ReceiveChannel<Rpt> = rpts.openSubscription()
 
-    fun <T> add(wish: Wish<T>) {
-        msgChannel.offer(Msg.AddWish(wish))
-    }
-
+    fun close() = job.cancel()
 }
-
-val httpTextService = WishService.Fetch(
-    name = "http-text",
-    paramsClass = URL::class.java,
-    resultClass = String::class.java,
-    perform = {
-        sleep(3)
-        it.toString()
-    }
-)
-
-inline fun <reified A> wishForText(
-    url: URL,
-    number: Int = Random.nextInt(),
-    noinline action: (Result<String>) -> A
-): Wish.Fetch<URL, String, A> = Wish.Fetch(
-    id = WishId(httpTextService.name, number),
-    params = url,
-    paramsClass = URL::class.java,
-    resultClass = String::class.java,
-    toAction = action,
-    actionClass = A::class.java
-)
-
-
-fun testma() {
-
-    val well = WishWell().apply { add(httpTextService) }
-    val wish = wishForText(URL("https://example.com/")) { it.map { 1 }.getOrElse { 0 } }
-        .apply { sendAction = { println("testma: $it") } }
-    well.add(wish)
-}
-
