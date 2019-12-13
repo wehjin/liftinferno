@@ -24,7 +24,8 @@ private fun revise1(
     edge: Edge
 ): LoggingVision {
     val movement = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
-    edge.project(movementStory(movement, edge)) { it is MovementVision.Dismissed }
+    val movementStory = movementStory(movement, edge)
+    edge.project(movementStory) { it is MovementVision.Dismissed }
     return vision
 }
 
