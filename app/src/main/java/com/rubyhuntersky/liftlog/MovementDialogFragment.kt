@@ -8,10 +8,7 @@ import android.view.ViewGroup
 import android.widget.PopupMenu
 import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.rubyhuntersky.liftlog.story.Direction
-import com.rubyhuntersky.liftlog.story.MovementAction
-import com.rubyhuntersky.liftlog.story.MovementVision
-import com.rubyhuntersky.liftlog.story.Story
+import com.rubyhuntersky.liftlog.story.*
 import kotlinx.android.synthetic.main.fragment_add_movement.view.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -53,7 +50,7 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
                         }
                         view.addButton.render(
                             onClick = if (vision.isReadyToAdd) {
-                                val function = { post(MovementAction.Cancel) }
+                                val function = { post(MovementAction.Add) }
                                 function
                             } else null
                         )
@@ -74,7 +71,7 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
 
     private var onDirectionPicked: ((direction: Direction) -> Unit)? = null
 
-    private lateinit var story: () -> Story<MovementVision, MovementAction>?
+    private lateinit var story: () -> Story<MovementVision, MovementAction, Movement>?
 
     override fun onCreateView(
         inflater: LayoutInflater,

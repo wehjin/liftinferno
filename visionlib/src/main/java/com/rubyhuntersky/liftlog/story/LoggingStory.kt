@@ -1,6 +1,7 @@
+@file:Suppress("EXPERIMENTAL_API_USAGE")
+
 package com.rubyhuntersky.liftlog.story
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import java.util.*
 import java.util.concurrent.TimeUnit
 
@@ -15,21 +16,34 @@ sealed class LoggingVision {
 
 sealed class LoggingAction {
     object AddMovement : LoggingAction()
+    data class ReceiveMovement(val movement: Movement) : LoggingAction()
+    data class Ignore(val ignore: Any) : LoggingAction()
 }
 
-@ExperimentalCoroutinesApi
+
 private fun revise1(
     vision: LoggingVision.Loaded,
     @Suppress("UNUSED_PARAMETER") action: LoggingAction.AddMovement,
     edge: Edge
 ): Revision<LoggingVision> {
     val movement = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
-    val movementStory = movementStory(movement, edge)
-    edge.project(movementStory) { it is MovementVision.Dismissed }
-    return revision(vision)
+    val movementWish =
+        movementStory(movement, edge).toWish {
+            it.map(LoggingAction::ReceiveMovement).getOrElse(LoggingAction::Ignore)
+        }
+    return revision(vision, movementWish)
 }
 
-@ExperimentalCoroutinesApi
+private fun revise1(
+    vision: LoggingVision.Loaded,
+    @Suppress("UNUSED_PARAMETER") action: LoggingAction.ReceiveMovement,
+    @Suppress("UNUSED_PARAMETER") edge: Edge
+): Revision<LoggingVision> {
+    // TODO Revise the vision to hold movements instead of days.
+    val newDays = listOf(vision.days.first().addMovement(action.movement, Date().time))
+    return revision(vision.copy(days = newDays))
+}
+
 private fun reviseLogging(
     vision: LoggingVision,
     action: LoggingAction,
@@ -37,13 +51,14 @@ private fun reviseLogging(
 ): Revision<LoggingVision> = when {
     vision is LoggingVision.Loaded
             && action is LoggingAction.AddMovement -> revise1(vision, action, edge)
+    vision is LoggingVision.Loaded
+            && action is LoggingAction.ReceiveMovement -> revise1(vision, action, edge)
     else -> fallbackRevision(vision, action)
 }
 
-@ExperimentalCoroutinesApi
-fun loggingStory(edge: Edge): Story<LoggingVision, LoggingAction> {
+fun loggingStory(edge: Edge): Story<LoggingVision, LoggingAction, Void> {
     val initial = LoggingVision.Loaded(fetchDays(), emptyList())
-    return storyOf("logging", initial, ::reviseLogging, edge)
+    return storyOf("logging", initial, ::reviseLogging, { StoryEnding.None }, edge)
 }
 
 private fun fetchDays(): List<LogDay> {

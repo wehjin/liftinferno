@@ -14,9 +14,9 @@ import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.launch
 
 @ExperimentalCoroutinesApi
-fun <V : Any, A> renderStory(
+fun <V : Any, A : Any, E : Any> renderStory(
     lifecycle: Lifecycle,
-    story: Story<V, A>,
+    story: Story<V, A, E>,
     renderVision: (vision: V, post: (A) -> Unit) -> Unit
 ) {
     lifecycle.addObserver(object : LifecycleObserver {
@@ -25,7 +25,7 @@ fun <V : Any, A> renderStory(
         @OnLifecycleEvent(Lifecycle.Event.ON_START)
         fun startProjection() {
             rendering = MainScope().launch {
-                story.subscribe().consumeEach { renderVision(it, story::offer) }
+                story.visions().consumeEach { renderVision(it, story::offer) }
             }
         }
 
@@ -35,25 +35,25 @@ fun <V : Any, A> renderStory(
 }
 
 @ExperimentalCoroutinesApi
-fun <V : Any, A> renderStory(
+fun <V : Any, A : Any, E : Any> renderStory(
     fragment: DialogFragment,
     storyId: Pair<String, Int>,
     edge: Edge,
     renderVision: (vision: V, post: (A) -> Unit) -> Unit
-): () -> Story<V, A>? {
-    var story: Story<V, A>? = null
+): () -> Story<V, A, E>? {
+    var story: Story<V, A, E>? = null
     val channel = Channel<Boolean>(5)
     MainScope().launch {
-        story = Channel<Story<*, *>?>()
+        story = Channel<Story<*, *, *>?>()
             .also { edge.findStory(storyId, it) }
-            .receive() as? Story<V, A>
+            .receive() as? Story<V, A, E>
         story?.let { story ->
             var renderJob: Job? = null
             channel.consumeEach { start ->
                 if (start) {
                     renderJob?.cancel()
                     renderJob = launch {
-                        story.subscribe().consumeEach {
+                        story.visions().consumeEach {
                             renderVision(it, story::offer)
                         }
                     }

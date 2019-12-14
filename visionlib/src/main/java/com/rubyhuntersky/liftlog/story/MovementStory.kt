@@ -1,6 +1,6 @@
-package com.rubyhuntersky.liftlog.story
+@file:Suppress("EXPERIMENTAL_API_USAGE")
 
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+package com.rubyhuntersky.liftlog.story
 
 
 sealed class MovementVision {
@@ -30,14 +30,12 @@ sealed class MovementAction {
 }
 
 @Suppress("UNUSED_PARAMETER")
-@ExperimentalCoroutinesApi
 private fun interactingCancel(
     vision: MovementVision.Interacting,
     action: MovementAction.Cancel,
     edge: Edge
 ) = revision(MovementVision.Dismissed(null) as MovementVision)
 
-@ExperimentalCoroutinesApi
 @Suppress("UNUSED_PARAMETER")
 private fun interactingAdd(
     vision: MovementVision.Interacting,
@@ -53,14 +51,12 @@ private fun interactingAdd(
     } else revision(vision)
 
 @Suppress("UNUSED_PARAMETER")
-@ExperimentalCoroutinesApi
 private fun setDirection(
     vision: MovementVision.Interacting,
     action: MovementAction.SetDirection,
     edge: Edge
 ) = revision(vision.copy(direction = action.direction) as MovementVision)
 
-@ExperimentalCoroutinesApi
 @Suppress("UNUSED_PARAMETER")
 private fun setForce(
     vision: MovementVision.Interacting,
@@ -68,7 +64,6 @@ private fun setForce(
     edge: Edge
 ) = revision(vision.copy(force = action.force))
 
-@ExperimentalCoroutinesApi
 @Suppress("UNUSED_PARAMETER")
 private fun setDistance(
     vision: MovementVision.Interacting,
@@ -76,14 +71,12 @@ private fun setDistance(
     edge: Edge
 ) = revision(vision.copy(distance = action.distance))
 
-@ExperimentalCoroutinesApi
 private fun dismissedCancel(
     vision: MovementVision.Dismissed,
     @Suppress("UNUSED_PARAMETER") action: MovementAction.Cancel,
     @Suppress("UNUSED_PARAMETER") edge: Edge
 ) = revision(vision)
 
-@ExperimentalCoroutinesApi
 private fun reviseMovement(
     vision: MovementVision,
     action: MovementAction,
@@ -105,8 +98,7 @@ private fun reviseMovement(
 }
 
 
-@ExperimentalCoroutinesApi
-fun movementStory(movement: Movement, edge: Edge): Story<MovementVision, MovementAction> =
+fun movementStory(movement: Movement, edge: Edge): Story<MovementVision, MovementAction, Movement> =
     storyOf(
         name = "add-movement",
         initial = MovementVision.Interacting(
@@ -118,6 +110,12 @@ fun movementStory(movement: Movement, edge: Edge): Story<MovementVision, Movemen
             direction = movement.direction
         ) as MovementVision,
         revise = ::reviseMovement,
+        visionToEnding = { vision ->
+            when (vision) {
+                is MovementVision.Interacting -> storyEndingNone()
+                is MovementVision.Dismissed -> storyEnding(vision.movement)
+            }
+        },
         edge = edge
     )
 

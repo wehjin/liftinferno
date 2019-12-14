@@ -5,17 +5,16 @@ import androidx.fragment.app.FragmentManager
 import com.rubyhuntersky.liftlog.story.Edge
 import com.rubyhuntersky.liftlog.story.Story
 import com.rubyhuntersky.liftlog.story.WishWell
-import kotlinx.coroutines.*
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.consumeEach
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 @FlowPreview
-@UseExperimental(InternalCoroutinesApi::class)
 @ExperimentalCoroutinesApi
 object MainEdge : Edge {
 
@@ -25,17 +24,16 @@ object MainEdge : Edge {
 
     sealed class Msg {
 
-        data class HoldStory<V : Any, A>(
+        data class HoldStory<V : Any, A : Any, E : Any>(
             val id: Pair<String, Int>,
-            val story: Story<V, A>,
-            val isEnd: (Any) -> Boolean
+            val story: Story<V, A, E>
         ) : Msg()
 
         data class DropStory(val id: Pair<String, Int>) : Msg()
 
         data class FindStory(
             val id: Pair<String, Int>,
-            val result: SendChannel<Story<*, *>?>
+            val result: SendChannel<Story<*, *, *>?>
         ) : Msg()
     }
 
@@ -43,10 +41,10 @@ object MainEdge : Edge {
 
     init {
         GlobalScope.launch {
-            val stories = mutableMapOf<Pair<String, Int>, Story<*, *>>()
+            val stories = mutableMapOf<Pair<String, Int>, Story<*, *, *>>()
             msgs.consumeEach { msg ->
                 when (msg) {
-                    is Msg.HoldStory<*, *> -> {
+                    is Msg.HoldStory<*, *, *> -> {
                         Log.d("MainEdge", "Holding Story/${msg.id}")
                         stories[msg.id] = msg.story
                         launch {
@@ -54,9 +52,8 @@ object MainEdge : Edge {
                                 "MainEdge",
                                 "Observing Story/${msg.id}"
                             )
-                            msg.story.subscribe().consumeAsFlow()
-                                .filter { msg.isEnd(it) }
-                                .collect { msgs.send(Msg.DropStory(msg.id)) }
+                            msg.story.ending().receive()
+                            msgs.send(Msg.DropStory(msg.id))
                         }
                     }
                     is Msg.DropStory -> {
@@ -73,11 +70,11 @@ object MainEdge : Edge {
     }
 
 
-    override fun <V : Any, A> project(story: Story<V, A>, isEnd: (Any) -> Boolean) {
+    override fun <V : Any, A : Any, E : Any> project(story: Story<V, A, E>) {
         when (story.name) {
             "add-movement" -> {
                 val id = Pair(story.name, Random.nextInt())
-                msgs.offer(Msg.HoldStory(id, story, isEnd))
+                msgs.offer(Msg.HoldStory(id, story))
                 activeFragmentManager?.let { fragmentManager ->
                     MovementDialogFragment()
                         .apply { storyId = id }.show(fragmentManager, "add-movement")
@@ -86,7 +83,7 @@ object MainEdge : Edge {
         }
     }
 
-    override fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *>?>) {
+    override fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *, *>?>) {
         msgs.offer(Msg.FindStory(id, receiveChannel))
     }
 }
