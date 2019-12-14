@@ -29,94 +29,48 @@ sealed class MovementAction {
     object Add : MovementAction()
 }
 
-@Suppress("UNUSED_PARAMETER")
-private fun interactingCancel(
-    vision: MovementVision.Interacting,
-    action: MovementAction.Cancel,
-    edge: Edge
-) = revision(MovementVision.Dismissed(null) as MovementVision)
-
-@Suppress("UNUSED_PARAMETER")
-private fun interactingAdd(
-    vision: MovementVision.Interacting,
-    action: MovementAction.Add,
-    edge: Edge
-) =
-    if (vision.isReadyToAdd) {
-        val direction = vision.direction
-        val force = Force.Lbs(vision.force!!)
-        val distance = Distance.Reps(vision.distance!!)
-        val movement = Movement(direction, force, distance)
-        revision(MovementVision.Dismissed(movement) as MovementVision)
-    } else revision(vision)
-
-@Suppress("UNUSED_PARAMETER")
-private fun setDirection(
-    vision: MovementVision.Interacting,
-    action: MovementAction.SetDirection,
-    edge: Edge
-) = revision(vision.copy(direction = action.direction) as MovementVision)
-
-@Suppress("UNUSED_PARAMETER")
-private fun setForce(
-    vision: MovementVision.Interacting,
-    action: MovementAction.SetForce,
-    edge: Edge
-) = revision(vision.copy(force = action.force))
-
-@Suppress("UNUSED_PARAMETER")
-private fun setDistance(
-    vision: MovementVision.Interacting,
-    action: MovementAction.SetDistance,
-    edge: Edge
-) = revision(vision.copy(distance = action.distance))
-
-private fun dismissedCancel(
-    vision: MovementVision.Dismissed,
-    @Suppress("UNUSED_PARAMETER") action: MovementAction.Cancel,
-    @Suppress("UNUSED_PARAMETER") edge: Edge
-) = revision(vision)
-
-private fun reviseMovement(
-    vision: MovementVision,
-    action: MovementAction,
-    edge: Edge
-): Revision<MovementVision> = when {
-    vision is MovementVision.Interacting
-            && action is MovementAction.Add -> interactingAdd(vision, action, edge)
-    vision is MovementVision.Interacting
-            && action is MovementAction.SetForce -> setForce(vision, action, edge)
-    vision is MovementVision.Interacting
-            && action is MovementAction.SetDistance -> setDistance(vision, action, edge)
-    vision is MovementVision.Interacting
-            && action is MovementAction.SetDirection -> setDirection(vision, action, edge)
-    vision is MovementVision.Interacting
-            && action is MovementAction.Cancel -> interactingCancel(vision, action, edge)
-    vision is MovementVision.Dismissed
-            && action is MovementAction.Cancel -> dismissedCancel(vision, action, edge)
-    else -> fallbackRevision(vision, action)
-}
-
-
-fun movementStory(movement: Movement, edge: Edge): Story<MovementVision, MovementAction, Movement> =
-    storyOf(
-        edge = edge,
-        name = "add-movement",
-        initial = MovementVision.Interacting(
-            startForce = movement.force.value,
-            startDistance = movement.distance.count,
-            startDirection = movement.direction,
-            force = movement.force.value,
-            distance = movement.distance.count,
-            direction = movement.direction
-        ) as MovementVision,
-        visionToEnding = { vision ->
-            when (vision) {
+fun movementStory(init: Movement, edge: Edge): Story<MovementVision, MovementAction, Movement> {
+    return newStoryOf(edge, "add-movement") {
+        take(MovementVision.Interacting::class.java, MovementAction.Add::class.java) {
+            if (vision.isReadyToAdd) {
+                val movement = Movement(
+                    direction = vision.direction,
+                    force = Force.Lbs(vision.force!!),
+                    distance = Distance.Reps(vision.distance!!)
+                )
+                give(MovementVision.Dismissed(movement))
+            } else give(vision)
+        }
+        take(MovementVision.Interacting::class.java, MovementAction.SetForce::class.java) {
+            give(vision.copy(force = action.force))
+        }
+        take(MovementVision.Interacting::class.java, MovementAction.SetDistance::class.java) {
+            give(vision.copy(distance = action.distance))
+        }
+        take(MovementVision.Interacting::class.java, MovementAction.SetDirection::class.java) {
+            give(vision.copy(direction = action.direction) as MovementVision)
+        }
+        take(MovementVision.Interacting::class.java, MovementAction.Cancel::class.java) {
+            give(MovementVision.Dismissed(null) as MovementVision)
+        }
+        take(MovementVision.Dismissed::class.java, MovementAction.Cancel::class.java) {
+            give(vision)
+        }
+        ending = {
+            when (it) {
                 is MovementVision.Interacting -> storyEndingNone()
-                is MovementVision.Dismissed -> storyEnding(vision.movement)
+                is MovementVision.Dismissed -> storyEnding(it.movement)
             }
-        },
-        revise = ::reviseMovement
-    )
+        }
+        MovementVision.Interacting(
+            startForce = init.force.value,
+            startDistance = init.distance.count,
+            startDirection = init.direction,
+            force = init.force.value,
+            distance = init.distance.count,
+            direction = init.direction
+        )
+    }
+}
 
 

@@ -49,7 +49,11 @@ fun storyEndingNone() = StoryEnding.None(Unit)
 interface RevisionScope<V1 : Any, A1 : Any> {
     val vision: V1
     val action: A1
-    fun to(vision: V1) = Revision(vision)
+}
+
+@Suppress("unused")
+fun <V : Any, V1 : V, A1 : Any> RevisionScope<V1, A1>.give(nextVision: V): Revision<V> {
+    return Revision(nextVision)
 }
 
 class Beat<V : Any, V1 : V, A1 : Any>(
@@ -71,18 +75,17 @@ class Beat<V : Any, V1 : V, A1 : Any>(
 }
 
 interface StoryScope<V : Any, A : Any> {
-
-    fun <V1 : V, A1 : A> map(
-        visionClass: Class<V1>,
-        actionClass: Class<A1>,
-        revise: RevisionScope<V1, A1>.() -> Revision<V>
-    ) {
-        beats.add(Beat(visionClass, actionClass, revise))
-    }
-
     val beats: MutableList<Beat<V, *, *>>
-
     var ending: ((V) -> StoryEnding)?
+}
+
+@Suppress("unused")
+fun <V : Any, A : Any, V1 : V, A1 : A> StoryScope<V, A>.take(
+    visionClass: Class<V1>,
+    actionClass: Class<A1>,
+    revise: RevisionScope<V1, A1>.() -> Revision<V>
+) {
+    beats.add(Beat(visionClass, actionClass, revise))
 }
 
 inline fun <V : Any, reified A : Any, reified E : Any> newStoryOf(
