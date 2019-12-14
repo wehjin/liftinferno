@@ -1,3 +1,5 @@
+@file:Suppress("EXPERIMENTAL_API_USAGE")
+
 package com.rubyhuntersky.liftlog.story
 
 import kotlinx.coroutines.*
@@ -13,23 +15,20 @@ interface Story<out V : Any, in A, out E : Any> {
 }
 
 interface Edge {
-    @ExperimentalCoroutinesApi
     val well: WishWell
 
     fun <V : Any, A : Any, E : Any> project(story: Story<V, A, E>)
     fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *, *>?>)
 }
 
-@ExperimentalCoroutinesApi
 data class Revision<out V : Any>(
     val vision: V,
     val wishes: List<Wish> = emptyList()
 )
 
-@ExperimentalCoroutinesApi
 fun <V : Any> revision(vision: V, vararg wish: Wish) = Revision(vision, wish.toList())
 
-@ExperimentalCoroutinesApi
+
 fun <V : Any, A : Any> fallbackRevision(vision: V, action: A): Revision<V> {
     println("No revision case for $action x $vision")
     return Revision(vision)
@@ -47,7 +46,64 @@ fun <T : Any> storyEnding(value: T?): StoryEnding {
 
 fun storyEndingNone() = StoryEnding.None(Unit)
 
-@ExperimentalCoroutinesApi
+interface RevisionScope<V1 : Any, A1 : Any> {
+    val vision: V1
+    val action: A1
+    fun to(vision: V1) = Revision(vision)
+}
+
+class Beat<V : Any, V1 : V, A1 : Any>(
+    val visionClass: Class<V1>,
+    val actionClass: Class<A1>,
+    val revise: RevisionScope<V1, A1>.() -> Revision<V>
+) {
+    fun <V : Any, A : Any> matches(vision: V, action: A): Boolean {
+        return visionClass.isInstance(vision) && actionClass.isInstance(action)
+    }
+
+    fun <A : Any> produce(vision: V, action: A): Revision<V> {
+        val scope = object : RevisionScope<V1, A1> {
+            override val vision: V1 by lazy { visionClass.cast(vision) }
+            override val action: A1 by lazy { actionClass.cast(action) }
+        }
+        return revise(scope)
+    }
+}
+
+interface StoryScope<V : Any, A : Any> {
+
+    fun <V1 : V, A1 : A> map(
+        visionClass: Class<V1>,
+        actionClass: Class<A1>,
+        revise: RevisionScope<V1, A1>.() -> Revision<V>
+    ) {
+        beats.add(Beat(visionClass, actionClass, revise))
+    }
+
+    val beats: MutableList<Beat<V, *, *>>
+
+    var ending: ((V) -> StoryEnding)?
+}
+
+inline fun <V : Any, reified A : Any, reified E : Any> newStoryOf(
+    edge: Edge,
+    name: String,
+    noinline init: StoryScope<V, A>.() -> V
+): Story<V, A, E> {
+    val scope = (object : StoryScope<V, A> {
+        override val beats = mutableListOf<Beat<V, *, *>>()
+        override var ending: ((V) -> StoryEnding)? = null
+    })
+    val start = init(scope)
+    val beats = scope.beats.associateBy { it.visionClass to it.actionClass }
+    val ending = scope.ending?.let { it } ?: StoryEnding::None
+    return storyOf(edge, name, start, ending, { vision, action, _ ->
+        val key = vision::class.java to action::class.java
+        beats[key]?.produce(vision, action) ?: fallbackRevision(vision, action)
+    })
+}
+
+
 inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
     edge: Edge,
     name: String,
@@ -228,8 +284,6 @@ sealed class Will<P : Any, R : Any, A : Any>(val wishId: WishId) {
     }
 }
 
-
-@ExperimentalCoroutinesApi
 class WishWell : CoroutineScope by GlobalScope {
     private sealed class Msg {
         data class AddWill(val will: Will<*, *, *>) : Msg()
