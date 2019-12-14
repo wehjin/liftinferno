@@ -10,7 +10,7 @@ sealed class LoggingVision {
         val days: List<LogDay>,
         val options: List<MoveOption>
     ) : LoggingVision() {
-        fun buildAddMovementAction(): LoggingAction = LoggingAction.AddMovement
+        fun addAction() = LoggingAction.AddMovement as LoggingAction
     }
 }
 

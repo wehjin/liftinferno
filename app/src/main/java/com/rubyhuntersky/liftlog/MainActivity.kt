@@ -42,7 +42,7 @@ class MainActivity : AppCompatActivity() {
         require(vision is LoggingVision.Loaded)
         recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
         movementButton.setOnClickListener {
-            post(vision.buildAddMovementAction())
+            post(vision.addAction())
         }
     }
 
