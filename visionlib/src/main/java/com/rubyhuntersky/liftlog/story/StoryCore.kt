@@ -26,9 +26,6 @@ data class Revision<out V : Any>(
     val wishes: List<Wish> = emptyList()
 )
 
-fun <V : Any> revision(vision: V, vararg wish: Wish) = Revision(vision, wish.toList())
-
-
 fun <V : Any, A : Any> fallbackRevision(vision: V, action: A): Revision<V> {
     println("No revision case for $action x $vision")
     return Revision(vision)
@@ -56,15 +53,17 @@ fun <V : Any, V1 : V, A1 : Any> RevisionScope<V1, A1>.give(nextVision: V): Revis
     return Revision(nextVision)
 }
 
-class Beat<V : Any, V1 : V, A1 : Any>(
+@Suppress("unused")
+fun <V : Any, V1 : V, A1 : Any> RevisionScope<V1, A1>.give(
+    vision: V,
+    vararg wish: Wish
+): Revision<V> = Revision(vision, wish.toList())
+
+class StoryBeat<V : Any, V1 : V, A1 : Any>(
     val visionClass: Class<V1>,
     val actionClass: Class<A1>,
     val revise: RevisionScope<V1, A1>.() -> Revision<V>
 ) {
-    fun <V : Any, A : Any> matches(vision: V, action: A): Boolean {
-        return visionClass.isInstance(vision) && actionClass.isInstance(action)
-    }
-
     fun <A : Any> produce(vision: V, action: A): Revision<V> {
         val scope = object : RevisionScope<V1, A1> {
             override val vision: V1 by lazy { visionClass.cast(vision) }
@@ -75,7 +74,7 @@ class Beat<V : Any, V1 : V, A1 : Any>(
 }
 
 interface StoryScope<V : Any, A : Any> {
-    val beats: MutableList<Beat<V, *, *>>
+    val beats: MutableList<StoryBeat<V, *, *>>
     var ending: ((V) -> StoryEnding)?
 }
 
@@ -85,36 +84,35 @@ fun <V : Any, A : Any, V1 : V, A1 : A> StoryScope<V, A>.take(
     actionClass: Class<A1>,
     revise: RevisionScope<V1, A1>.() -> Revision<V>
 ) {
-    beats.add(Beat(visionClass, actionClass, revise))
+    beats.add(StoryBeat(visionClass, actionClass, revise))
 }
 
-inline fun <V : Any, reified A : Any, reified E : Any> newStoryOf(
+inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
     edge: Edge,
     name: String,
     noinline init: StoryScope<V, A>.() -> V
 ): Story<V, A, E> {
     val scope = (object : StoryScope<V, A> {
-        override val beats = mutableListOf<Beat<V, *, *>>()
+        override val beats = mutableListOf<StoryBeat<V, *, *>>()
         override var ending: ((V) -> StoryEnding)? = null
     })
     val start = init(scope)
+    val end = scope.ending?.let { it } ?: StoryEnding::None
     val beats = scope.beats.associateBy { it.visionClass to it.actionClass }
-    val ending = scope.ending?.let { it } ?: StoryEnding::None
-    return storyOf(edge, name, start, ending, { vision, action, _ ->
+    return storyOf(edge, name, start, end, { vision, action, _ ->
         val key = vision::class.java to action::class.java
         beats[key]?.produce(vision, action) ?: fallbackRevision(vision, action)
     })
 }
 
-
 inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
     edge: Edge,
     name: String,
-    initial: V,
-    noinline visionToEnding: (V) -> StoryEnding,
+    start: V,
+    noinline end: (V) -> StoryEnding,
     noinline revise: (V, A, Edge) -> Revision<V>
 ): Story<V, A, E> {
-    val visions = ConflatedBroadcastChannel(initial)
+    val visions = ConflatedBroadcastChannel(start)
     val endings = ConflatedBroadcastChannel<E?>()
     val actions = Channel<A>(10)
     GlobalScope.launch {
@@ -133,7 +131,7 @@ inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
                         }
                     })
                 }
-                when (val ending = visionToEnding(revision.vision)) {
+                when (val ending = end(revision.vision)) {
                     is StoryEnding.None -> Unit
                     is StoryEnding.Cancelled -> endings.send(null)
                     is StoryEnding.Ended<*> -> endings.send(ending.value as E)

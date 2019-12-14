@@ -35,7 +35,7 @@ internal class StoryCoreKtTest {
 
     @Test
     fun main() {
-        val story = newStoryOf<Count, Action, Void>(MyEdge, "test") {
+        val story = storyOf<Count, Action, Void>(MyEdge, "test") {
             take(Count::class.java, Action.Incr::class.java) {
                 give(vision + action.count)
             }

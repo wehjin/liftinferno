@@ -23,35 +23,39 @@ sealed class MovementVision {
 
 sealed class MovementAction {
     object Cancel : MovementAction()
+    object Add : MovementAction()
     data class SetForce(val force: Int?) : MovementAction()
     data class SetDistance(val distance: Int?) : MovementAction()
     data class SetDirection(val direction: Direction) : MovementAction()
-    object Add : MovementAction()
 }
 
 fun movementStory(init: Movement, edge: Edge): Story<MovementVision, MovementAction, Movement> {
-    return newStoryOf(edge, "add-movement") {
+    return storyOf(edge, "add-movement") {
+        take(MovementVision.Interacting::class.java, MovementAction.Cancel::class.java) {
+            val newMovement = null
+            give(MovementVision.Dismissed(newMovement))
+        }
         take(MovementVision.Interacting::class.java, MovementAction.Add::class.java) {
             if (vision.isReadyToAdd) {
-                val movement = Movement(
+                val newMovement = Movement(
                     direction = vision.direction,
                     force = Force.Lbs(vision.force!!),
                     distance = Distance.Reps(vision.distance!!)
                 )
-                give(MovementVision.Dismissed(movement))
+                give(MovementVision.Dismissed(newMovement))
             } else give(vision)
         }
         take(MovementVision.Interacting::class.java, MovementAction.SetForce::class.java) {
-            give(vision.copy(force = action.force))
+            val newForce = action.force
+            give(vision.copy(force = newForce))
         }
         take(MovementVision.Interacting::class.java, MovementAction.SetDistance::class.java) {
-            give(vision.copy(distance = action.distance))
+            val newDistance = action.distance
+            give(vision.copy(distance = newDistance))
         }
         take(MovementVision.Interacting::class.java, MovementAction.SetDirection::class.java) {
-            give(vision.copy(direction = action.direction) as MovementVision)
-        }
-        take(MovementVision.Interacting::class.java, MovementAction.Cancel::class.java) {
-            give(MovementVision.Dismissed(null) as MovementVision)
+            val newDirection = action.direction
+            give(vision.copy(direction = newDirection))
         }
         take(MovementVision.Dismissed::class.java, MovementAction.Cancel::class.java) {
             give(vision)
@@ -72,5 +76,6 @@ fun movementStory(init: Movement, edge: Edge): Story<MovementVision, MovementAct
         )
     }
 }
+
 
 
