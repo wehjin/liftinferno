@@ -58,7 +58,7 @@ private fun reviseLogging(
 
 fun loggingStory(edge: Edge): Story<LoggingVision, LoggingAction, Void> {
     val initial = LoggingVision.Loaded(fetchDays(), emptyList())
-    return storyOf("logging", initial, ::reviseLogging, { StoryEnding.None }, edge)
+    return storyOf(edge, "logging", initial, StoryEnding::None, ::reviseLogging)
 }
 
 private fun fetchDays(): List<LogDay> {

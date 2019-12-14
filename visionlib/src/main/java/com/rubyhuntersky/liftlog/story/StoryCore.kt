@@ -37,23 +37,23 @@ fun <V : Any, A : Any> fallbackRevision(vision: V, action: A): Revision<V> {
 
 sealed class StoryEnding {
     data class Ended<E : Any>(val value: E) : StoryEnding()
-    object Cancelled : StoryEnding()
-    object None : StoryEnding()
+    data class Cancelled(private val ignore: Any = Unit) : StoryEnding()
+    data class None(private val ignore: Any = Unit) : StoryEnding()
 }
 
 fun <T : Any> storyEnding(value: T?): StoryEnding {
-    return value?.let { StoryEnding.Ended(it) } ?: StoryEnding.Cancelled
+    return value?.let { StoryEnding.Ended(it) } ?: StoryEnding.Cancelled()
 }
 
-fun storyEndingNone() = StoryEnding.None
+fun storyEndingNone() = StoryEnding.None(Unit)
 
 @ExperimentalCoroutinesApi
 inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
+    edge: Edge,
     name: String,
     initial: V,
-    noinline revise: (V, A, Edge) -> Revision<V>,
     noinline visionToEnding: (V) -> StoryEnding,
-    edge: Edge
+    noinline revise: (V, A, Edge) -> Revision<V>
 ): Story<V, A, E> {
     val visions = ConflatedBroadcastChannel(initial)
     val endings = ConflatedBroadcastChannel<E?>()
@@ -75,8 +75,8 @@ inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
                     })
                 }
                 when (val ending = visionToEnding(revision.vision)) {
-                    StoryEnding.None -> Unit
-                    StoryEnding.Cancelled -> endings.send(null)
+                    is StoryEnding.None -> Unit
+                    is StoryEnding.Cancelled -> endings.send(null)
                     is StoryEnding.Ended<*> -> endings.send(ending.value as E)
                 }
             }

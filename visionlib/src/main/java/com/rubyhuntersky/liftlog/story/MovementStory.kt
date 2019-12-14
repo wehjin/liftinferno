@@ -100,6 +100,7 @@ private fun reviseMovement(
 
 fun movementStory(movement: Movement, edge: Edge): Story<MovementVision, MovementAction, Movement> =
     storyOf(
+        edge = edge,
         name = "add-movement",
         initial = MovementVision.Interacting(
             startForce = movement.force.value,
@@ -109,14 +110,13 @@ fun movementStory(movement: Movement, edge: Edge): Story<MovementVision, Movemen
             distance = movement.distance.count,
             direction = movement.direction
         ) as MovementVision,
-        revise = ::reviseMovement,
         visionToEnding = { vision ->
             when (vision) {
                 is MovementVision.Interacting -> storyEndingNone()
                 is MovementVision.Dismissed -> storyEnding(vision.movement)
             }
         },
-        edge = edge
+        revise = ::reviseMovement
     )
 
 
