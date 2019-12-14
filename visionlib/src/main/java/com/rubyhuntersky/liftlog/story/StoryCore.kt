@@ -10,20 +10,34 @@ interface Story<out V : Any, in A> {
 }
 
 interface Edge {
+    @ExperimentalCoroutinesApi
+    val well: WishWell
+
     fun <V : Any, A> project(story: Story<V, A>, isEnd: (Any) -> Boolean)
     fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *>?>)
 }
 
-fun <V : Any, A> fallbackRevision(vision: V, action: A): V {
-    println("No revision case for $action x $vision")
-    return vision
-}
+@ExperimentalCoroutinesApi
+data class Revision<out V : Any>(
+    val vision: V,
+    val wishes: List<Wish> = emptyList()
+)
 
 @ExperimentalCoroutinesApi
-fun <V : Any, A> storyOf(
+fun <V : Any> revision(vision: V) = Revision(vision)
+
+@ExperimentalCoroutinesApi
+fun <V : Any, A : Any> fallbackRevision(vision: V, action: A): Revision<V> {
+    println("No revision case for $action x $vision")
+    return Revision(vision)
+}
+
+
+@ExperimentalCoroutinesApi
+inline fun <V : Any, reified A : Any> storyOf(
     name: String,
     initial: V,
-    revise: (V, A, Edge) -> V,
+    noinline revise: (V, A, Edge) -> Revision<V>,
     edge: Edge
 ): Story<V, A> {
     val visions = ConflatedBroadcastChannel(initial)
@@ -31,7 +45,15 @@ fun <V : Any, A> storyOf(
     GlobalScope.launch {
         println("Story/$name launched")
         actions.consumeEach { action ->
-            revise(visions.value, action, edge).also { visions.send(it) }
+            revise(visions.value, action, edge).also { revision ->
+                visions.send(revision.vision)
+                revision.wishes.forEach { wish ->
+                    edge.well.addWill(when (wish) {
+                        is Wish.Forget -> Will.Forget(wish)
+                        is Wish.Fetch<*, *, *> -> Will.Fetch(wish) { actions.offer(it as A) }
+                    })
+                }
+            }
             println("Story/$name vision: ${visions.value}")
         }
     }
@@ -80,13 +102,13 @@ sealed class WishService<P : Any, R : Any> {
     ) : WishService<P, R>(), Fetcher<P, R>
 }
 
-sealed class Wish<T : Any> {
+sealed class Wish {
 
     abstract val id: WishId
 
-    data class Forget(override val id: WishId) : Wish<Void>() {
-        fun toWill() = Will.Forget(this)
-    }
+    data class Forget(
+        override val id: WishId
+    ) : Wish()
 
     data class Fetch<P : Any, R : Any, A : Any>(
         val service: WishService.Fetch<P, R>,
@@ -94,7 +116,7 @@ sealed class Wish<T : Any> {
         override val params: P,
         override val actionClass: Class<A>,
         override val resultToAction: (Result<R>) -> A
-    ) : Wish<R>(), Parameterized<P>, Fetcher<P, R>, Actionable<R, A> {
+    ) : Wish(), Parameterized<P>, Fetcher<P, R>, Actionable<R, A> {
 
         override val id by lazy { WishId(service.name, number) }
         override val paramsClass: Class<P> = service.paramsClass
@@ -109,8 +131,6 @@ sealed class Wish<T : Any> {
             }
             return resultToAction(result)
         }
-
-        fun toWill(sendAction: (A) -> Unit) = Will.Fetch(this, sendAction)
     }
 }
 

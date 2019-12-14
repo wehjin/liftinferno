@@ -45,7 +45,7 @@ internal class WishWellTest {
             val wish = urlTextWish(URL(urlString)) { result ->
                 result.map { it.length }.getOrElse { 0 }
             }
-            val will = wish.toWill {
+            val will = Will.Fetch(wish) {
                 assertEquals(urlString.length, it)
             }
             well.addWill(will)

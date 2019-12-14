@@ -22,11 +22,11 @@ private fun revise1(
     vision: LoggingVision.Loaded,
     @Suppress("UNUSED_PARAMETER") action: LoggingAction.AddMovement,
     edge: Edge
-): LoggingVision {
+): Revision<LoggingVision> {
     val movement = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
     val movementStory = movementStory(movement, edge)
     edge.project(movementStory) { it is MovementVision.Dismissed }
-    return vision
+    return revision(vision)
 }
 
 @ExperimentalCoroutinesApi
@@ -34,7 +34,7 @@ private fun reviseLogging(
     vision: LoggingVision,
     action: LoggingAction,
     edge: Edge
-): LoggingVision = when {
+): Revision<LoggingVision> = when {
     vision is LoggingVision.Loaded
             && action is LoggingAction.AddMovement -> revise1(vision, action, edge)
     else -> fallbackRevision(vision, action)

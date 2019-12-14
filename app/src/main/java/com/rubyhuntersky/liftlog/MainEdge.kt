@@ -4,6 +4,7 @@ import android.util.Log
 import androidx.fragment.app.FragmentManager
 import com.rubyhuntersky.liftlog.story.Edge
 import com.rubyhuntersky.liftlog.story.Story
+import com.rubyhuntersky.liftlog.story.WishWell
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.SendChannel
@@ -17,6 +18,8 @@ import kotlin.random.Random
 @UseExperimental(InternalCoroutinesApi::class)
 @ExperimentalCoroutinesApi
 object MainEdge : Edge {
+
+    override val well = WishWell()
 
     var activeFragmentManager: FragmentManager? = null
 

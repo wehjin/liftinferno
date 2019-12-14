@@ -29,55 +29,66 @@ sealed class MovementAction {
     object Add : MovementAction()
 }
 
+@Suppress("UNUSED_PARAMETER")
+@ExperimentalCoroutinesApi
 private fun interactingCancel(
     vision: MovementVision.Interacting,
     action: MovementAction.Cancel,
     edge: Edge
-): MovementVision = MovementVision.Dismissed(null)
+) = revision(MovementVision.Dismissed(null) as MovementVision)
 
+@ExperimentalCoroutinesApi
+@Suppress("UNUSED_PARAMETER")
 private fun interactingAdd(
     vision: MovementVision.Interacting,
     action: MovementAction.Add,
     edge: Edge
-): MovementVision =
+) =
     if (vision.isReadyToAdd) {
         val direction = vision.direction
         val force = Force.Lbs(vision.force!!)
         val distance = Distance.Reps(vision.distance!!)
         val movement = Movement(direction, force, distance)
-        MovementVision.Dismissed(movement)
-    } else vision
+        revision(MovementVision.Dismissed(movement) as MovementVision)
+    } else revision(vision)
 
+@Suppress("UNUSED_PARAMETER")
+@ExperimentalCoroutinesApi
 private fun setDirection(
     vision: MovementVision.Interacting,
     action: MovementAction.SetDirection,
     edge: Edge
-): MovementVision = vision.copy(direction = action.direction)
+) = revision(vision.copy(direction = action.direction) as MovementVision)
 
+@ExperimentalCoroutinesApi
+@Suppress("UNUSED_PARAMETER")
 private fun setForce(
     vision: MovementVision.Interacting,
     action: MovementAction.SetForce,
     edge: Edge
-): MovementVision = vision.copy(force = action.force)
+) = revision(vision.copy(force = action.force))
 
+@ExperimentalCoroutinesApi
+@Suppress("UNUSED_PARAMETER")
 private fun setDistance(
     vision: MovementVision.Interacting,
     action: MovementAction.SetDistance,
     edge: Edge
-): MovementVision = vision.copy(distance = action.distance)
+) = revision(vision.copy(distance = action.distance))
 
+@ExperimentalCoroutinesApi
 private fun dismissedCancel(
     vision: MovementVision.Dismissed,
-    action: MovementAction.Cancel,
-    edge: Edge
-): MovementVision = vision
+    @Suppress("UNUSED_PARAMETER") action: MovementAction.Cancel,
+    @Suppress("UNUSED_PARAMETER") edge: Edge
+) = revision(vision)
 
-
+@ExperimentalCoroutinesApi
 private fun reviseMovement(
     vision: MovementVision,
     action: MovementAction,
     edge: Edge
-): MovementVision = when {
+): Revision<MovementVision> = when {
     vision is MovementVision.Interacting
             && action is MovementAction.Add -> interactingAdd(vision, action, edge)
     vision is MovementVision.Interacting
