@@ -17,7 +17,7 @@ internal class WishWellTest {
         name = "url-text",
         paramsClass = URL::class.java,
         resultClass = String::class.java,
-        paramsToResult = { it.toString() }
+        resultOnParams = { it.toString() }
     )
 
     private inline fun <reified A : Any> urlTextWish(
@@ -29,7 +29,7 @@ internal class WishWellTest {
         number = number,
         params = url,
         actionClass = A::class.java,
-        resultToAction = textToAction
+        actionOnResult = textToAction
     )
 
     @ExperimentalCoroutinesApi

@@ -165,13 +165,13 @@ interface Parameterized<P : Any> {
 interface Actionable<R, A> {
     val resultClass: Class<R>
     val actionClass: Class<A>
-    val resultToAction: (Result<R>) -> A
+    val actionOnResult: (Result<R>) -> A
 }
 
 interface Fetcher<P : Any, R : Any> {
     val paramsClass: Class<P>
     val resultClass: Class<R>
-    val paramsToResult: (P) -> R
+    val resultOnParams: (P) -> R
 }
 
 sealed class WishService<P : Any, R : Any> {
@@ -183,7 +183,7 @@ sealed class WishService<P : Any, R : Any> {
         override val name: String,
         override val paramsClass: Class<P>,
         override val resultClass: Class<R>,
-        override val paramsToResult: (P) -> R
+        override val resultOnParams: (P) -> R
     ) : WishService<P, R>(), Fetcher<P, R>
 }
 
@@ -200,20 +200,20 @@ sealed class Wish {
         val number: Int,
         override val params: P,
         override val actionClass: Class<A>,
-        override val resultToAction: (Result<R>) -> A
+        override val actionOnResult: (Result<R>) -> A
     ) : Wish(), Parameterized<P>, Fetcher<P, R>, Actionable<R, A> {
         override val id by lazy { WishId(service.name, number) }
         override val paramsClass: Class<P> = service.paramsClass
         override val resultClass: Class<R> = service.resultClass
-        override val paramsToResult = service.paramsToResult
+        override val resultOnParams = service.resultOnParams
 
         fun action(): A {
             val result = try {
-                Result.success(paramsToResult.invoke(params))
+                Result.success(resultOnParams.invoke(params))
             } catch (e: Throwable) {
                 Result.failure<R>(e)
             }
-            return resultToAction(result)
+            return actionOnResult(result)
         }
     }
 
@@ -221,35 +221,39 @@ sealed class Wish {
         val number: Int,
         override val paramsClass: Class<Story<V, *, E>>,
         override val params: Story<V, *, E>,
-        override val resultClass: Class<E>,
-        override val actionClass: Class<A2>,
-        override val resultToAction: (Result<E>) -> A2
-    ) : Wish(), Parameterized<Story<V, *, E>>, Actionable<E, A2> {
+        val resultClass: Class<E>,
+        val actionClass: Class<A2>,
+        val actionOnSuccess: (E) -> A2,
+        val actionOnFailure: (Throwable) -> A2
+    ) : Wish(), Parameterized<Story<V, *, E>> {
         override val id = WishId("story-${params.name}-ending", number)
 
-        suspend fun action(): A2 {
-            val result = try {
+        suspend fun action(): A2 =
+            try {
                 val ending = params.ending().receive()
                 if (ending == null) throw (Exception("Cancelled"))
-                else Result.success(ending)
+                else actionOnSuccess(ending)
             } catch (e: Throwable) {
-                Result.failure<E>(e)
+                actionOnFailure(e)
             }
-            return resultToAction(result)
-        }
     }
 }
 
-inline fun <V : Any, reified E : Any, reified A2 : Any> Story<V, *, E>.toWish(
-    noinline resultToAction: (Result<E>) -> A2
-) = Wish.Tell(
-    number = Random.nextInt().absoluteValue,
-    paramsClass = javaClass,
-    params = this,
-    resultClass = E::class.java,
-    actionClass = A2::class.java,
-    resultToAction = resultToAction
-)
+
+inline fun <V : Any, reified E : Any, reified A2 : Any, A2A : A2, A2B : A2> Story<V, *, E>.toWish(
+    noinline onSuccess: (E) -> A2A,
+    noinline onFailure: (Throwable) -> A2B
+): Wish.Tell<V, E, A2> {
+    return Wish.Tell(
+        number = Random.nextInt().absoluteValue,
+        paramsClass = javaClass,
+        params = this,
+        resultClass = E::class.java,
+        actionClass = A2::class.java,
+        actionOnSuccess = onSuccess,
+        actionOnFailure = onFailure
+    )
+}
 
 sealed class Will<P : Any, R : Any, A : Any>(val wishId: WishId) {
 

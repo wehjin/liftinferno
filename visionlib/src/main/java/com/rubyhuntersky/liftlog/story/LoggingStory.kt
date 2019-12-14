@@ -23,12 +23,9 @@ sealed class LoggingAction {
 fun loggingStory(edge: Edge): Story<LoggingVision, LoggingAction, Void> {
     return storyOf(edge, "logging") {
         take(LoggingVision.Loaded::class.java, LoggingAction.AddMovement::class.java) {
-            val movement = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
-            val movementWish =
-                movementStory(movement, edge).toWish {
-                    it.map(LoggingAction::ReceiveMovement).getOrElse(LoggingAction::Ignore)
-                }
-            give(vision, movementWish)
+            val suggested = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
+            val addMovement = movementStory(suggested, edge)
+            give(vision, addMovement.toWish(LoggingAction::ReceiveMovement, LoggingAction::Ignore))
         }
         take(LoggingVision.Loaded::class.java, LoggingAction.ReceiveMovement::class.java) {
             val newDays = listOf(vision.days.first().addMovement(action.movement, Date().time))
