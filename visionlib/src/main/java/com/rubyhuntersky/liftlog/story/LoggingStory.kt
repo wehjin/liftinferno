@@ -25,6 +25,7 @@ object LoggingStory {
     operator fun invoke(edge: Edge): Story<Vision, Void> = storyOf(edge, "logging") {
         on(Vision.Loaded::class.java, Action.AddMovement::class.java) {
             val suggested = Movement(
+                milliTime = Date().time,
                 direction = Direction.Dips,
                 force = Force.Lbs(100),
                 distance = Distance.Reps(5)
@@ -50,16 +51,19 @@ private fun fetchDays(): List<LogDay> {
                     epoch = tenMinutesAgo,
                     movements = listOf(
                         Movement(
+                            now.time,
                             direction = Direction.PullUps,
                             force = Force.Lbs(110),
                             distance = Distance.Reps(6)
                         ),
                         Movement(
+                            now.time,
                             direction = Direction.Squats,
                             force = Force.Lbs(110),
                             distance = Distance.Reps(6)
                         ),
                         Movement(
+                            now.time,
                             direction = Direction.Dips,
                             force = Force.Lbs(110),
                             distance = Distance.Reps(6)
@@ -70,16 +74,19 @@ private fun fetchDays(): List<LogDay> {
                     epoch = tenMinutesAgo,
                     movements = listOf(
                         Movement(
+                            now.time,
                             direction = Direction.PullUps,
                             force = Force.Lbs(110),
                             distance = Distance.Reps(6)
                         ),
                         Movement(
+                            now.time,
                             direction = Direction.Squats,
                             force = Force.Lbs(110),
                             distance = Distance.Reps(6)
                         ),
                         Movement(
+                            now.time,
                             direction = Direction.Dips,
                             force = Force.Lbs(110),
                             distance = Distance.Reps(6)

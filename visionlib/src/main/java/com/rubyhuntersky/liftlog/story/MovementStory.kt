@@ -2,6 +2,8 @@
 
 package com.rubyhuntersky.liftlog.story
 
+import java.util.*
+
 
 object MovementStory {
 
@@ -45,6 +47,7 @@ object MovementStory {
             on(Vision.Interacting::class.java, Action.Add::class.java) {
                 if (vision.isReadyToAdd) {
                     val newMovement = Movement(
+                        milliTime = Date().time,
                         direction = vision.direction,
                         force = Force.Lbs(vision.force!!),
                         distance = Distance.Reps(vision.distance!!)

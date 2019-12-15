@@ -1,6 +1,7 @@
 package com.rubyhuntersky.liftlog.story
 
 data class Movement(
+    val milliTime: Long,
     val direction: Direction,
     val force: Force,
     val distance: Distance
