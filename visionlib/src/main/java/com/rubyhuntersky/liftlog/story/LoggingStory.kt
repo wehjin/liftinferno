@@ -3,13 +3,15 @@
 package com.rubyhuntersky.liftlog.story
 
 import java.util.*
-import java.util.concurrent.TimeUnit
+import kotlin.time.ExperimentalTime
 
+@ExperimentalTime
 object LoggingStory {
 
     sealed class Vision {
+        @ExperimentalTime
         data class Loaded(
-            val days: List<LogDay>,
+            val history: History,
             val options: List<MoveOption>
         ) : Vision() {
             fun addAction() = Action.AddMovement as Any
@@ -34,66 +36,9 @@ object LoggingStory {
             give(vision, addMovement.toWish(Action::ReceiveMovement, Action::Ignore))
         }
         on(Vision.Loaded::class.java, Action.ReceiveMovement::class.java) {
-            val newDays = listOf(vision.days.first().addMovement(action.movement, Date().time))
-            give(vision.copy(days = newDays))
+            val newVision = vision.copy(history = vision.history.add(action.movement))
+            give(newVision)
         }
-        Vision.Loaded(fetchDays(), emptyList())
+        Vision.Loaded(History(emptySet()), emptyList())
     }
-}
-
-private fun fetchDays(): List<LogDay> {
-    val now = Date()
-    val tenMinutesAgo = now.time - TimeUnit.MINUTES.toMillis(10)
-    return listOf(
-        LogDay(
-            rounds = listOf(
-                Round(
-                    epoch = tenMinutesAgo,
-                    movements = listOf(
-                        Movement(
-                            now.time,
-                            direction = Direction.PullUps,
-                            force = Force.Lbs(110),
-                            distance = Distance.Reps(6)
-                        ),
-                        Movement(
-                            now.time,
-                            direction = Direction.Squats,
-                            force = Force.Lbs(110),
-                            distance = Distance.Reps(6)
-                        ),
-                        Movement(
-                            now.time,
-                            direction = Direction.Dips,
-                            force = Force.Lbs(110),
-                            distance = Distance.Reps(6)
-                        )
-                    )
-                ),
-                Round(
-                    epoch = tenMinutesAgo,
-                    movements = listOf(
-                        Movement(
-                            now.time,
-                            direction = Direction.PullUps,
-                            force = Force.Lbs(110),
-                            distance = Distance.Reps(6)
-                        ),
-                        Movement(
-                            now.time,
-                            direction = Direction.Squats,
-                            force = Force.Lbs(110),
-                            distance = Distance.Reps(6)
-                        ),
-                        Movement(
-                            now.time,
-                            direction = Direction.Dips,
-                            force = Force.Lbs(110),
-                            distance = Distance.Reps(6)
-                        )
-                    )
-                )
-            )
-        )
-    )
 }

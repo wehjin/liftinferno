@@ -12,6 +12,7 @@ import com.rubyhuntersky.liftlog.story.Movement
 import com.rubyhuntersky.liftlog.story.Round
 import kotlinx.android.synthetic.main.activity_main.*
 import java.util.*
+import kotlin.time.ExperimentalTime
 
 class Chatter {
     enum class Side { LEFT, RIGHT }
@@ -25,8 +26,10 @@ class Chatter {
     }
 }
 
+@ExperimentalTime
 private val loggingStory = LoggingStory(MainEdge)
 
+@ExperimentalTime
 class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -47,16 +50,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun dialogParts(vision: LoggingStory.Vision.Loaded): List<Part> {
         val now = Date()
-        val visionParts = vision.days
+        val visionParts = vision.history.logDays
             .sortedByDescending { it.startTime }
             .flatMap { dialogParts(it, now).reversed() }
+
 
         val infernoParts = listOf(
             Part.Speaker("Inferno", Side.LEFT),
             Part.Bubble("Squats: Rest 34s", Side.LEFT, BubbleType.SOLO)
         ).reversed()
+        val infernoTitle =
+            if (visionParts.isEmpty()) listOf(Part.Timestamp(now, now)) else emptyList<Part>()
 
-        return listOf(Part.Guard) + infernoParts + visionParts + Part.Guard
+        return listOf(Part.Guard) + infernoParts + infernoTitle + visionParts + Part.Guard
     }
 
 
