@@ -15,11 +15,11 @@ internal class StoryCoreKtTest {
         @ExperimentalCoroutinesApi
         override val well = WishWell()
 
-        override fun <V : Any, A : Any, E : Any> project(story: Story<V, A, E>) = Unit
+        override fun <V : Any, E : Any> project(story: Story<V, E>) = Unit
 
         override fun findStory(
             id: Pair<String, Int>,
-            receiveChannel: SendChannel<Story<*, *, *>?>
+            receiveChannel: SendChannel<Story<*, *>?>
         ) = Unit
     }
 
@@ -35,11 +35,11 @@ internal class StoryCoreKtTest {
 
     @Test
     fun main() {
-        val story = storyOf<Count, Action, Void>(MyEdge, "test") {
-            take(Count::class.java, Action.Incr::class.java) {
+        val story = storyOf<Count, Void>(MyEdge, "test") {
+            on(Count::class.java, Action.Incr::class.java) {
                 give(vision + action.count)
             }
-            take(Count::class.java, Action.Decr::class.java) {
+            on(Count::class.java, Action.Decr::class.java) {
                 give(vision - action.count)
             }
             Count(5, 1)

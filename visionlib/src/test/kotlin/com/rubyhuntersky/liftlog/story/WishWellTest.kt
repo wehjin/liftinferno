@@ -20,15 +20,14 @@ internal class WishWellTest {
         resultOnParams = { it.toString() }
     )
 
-    private inline fun <reified A : Any> urlTextWish(
+    private fun urlTextWish(
         url: URL,
         number: Int = Random.nextInt().absoluteValue,
-        noinline textToAction: (Result<String>) -> A
+        textToAction: (Result<String>) -> Any
     ) = Wish.Fetch(
         service = urlToTextService,
         number = number,
         params = url,
-        actionClass = A::class.java,
         actionOnResult = textToAction
     )
 

@@ -16,7 +16,7 @@ import kotlinx.coroutines.launch
 @ExperimentalCoroutinesApi
 fun <V : Any, A : Any, E : Any> renderStory(
     lifecycle: Lifecycle,
-    story: Story<V, A, E>,
+    story: Story<V, E>,
     renderVision: (vision: V, post: (A) -> Unit) -> Unit
 ) {
     lifecycle.addObserver(object : LifecycleObserver {
@@ -35,18 +35,18 @@ fun <V : Any, A : Any, E : Any> renderStory(
 }
 
 @ExperimentalCoroutinesApi
-fun <V : Any, A : Any, E : Any> renderStory(
+fun <V : Any, E : Any> renderStory(
     fragment: DialogFragment,
     storyId: Pair<String, Int>,
     edge: Edge,
-    renderVision: (vision: V, post: (A) -> Unit) -> Unit
-): () -> Story<V, A, E>? {
-    var story: Story<V, A, E>? = null
+    renderVision: (vision: V, post: (Any) -> Unit) -> Unit
+): () -> Story<V, E>? {
+    var story: Story<V, E>? = null
     val channel = Channel<Boolean>(5)
     MainScope().launch {
-        story = Channel<Story<*, *, *>?>()
+        story = Channel<Story<*, *>?>()
             .also { edge.findStory(storyId, it) }
-            .receive() as? Story<V, A, E>
+            .receive() as? Story<V, E>
         story?.let { story ->
             var renderJob: Job? = null
             channel.consumeEach { start ->

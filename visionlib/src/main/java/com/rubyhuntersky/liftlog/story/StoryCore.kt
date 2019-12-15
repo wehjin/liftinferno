@@ -7,18 +7,24 @@ import kotlinx.coroutines.channels.*
 import kotlin.math.absoluteValue
 import kotlin.random.Random
 
-interface Story<out V : Any, in A, out E : Any> {
+interface Story<out V : Any, out E : Any> {
     val name: String
     fun visions(): ReceiveChannel<V>
-    fun offer(action: A)
     fun ending(): ReceiveChannel<E?>
+    fun offer(action: Any)
+    fun cancelAction(): Any?
+}
+
+@Suppress("unused")
+fun <V : Any, E : Any> Story<V, E>.cancel() {
+    cancelAction()?.let { offer(it) }
 }
 
 interface Edge {
     val well: WishWell
 
-    fun <V : Any, A : Any, E : Any> project(story: Story<V, A, E>)
-    fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *, *>?>)
+    fun <V : Any, E : Any> project(story: Story<V, E>)
+    fun findStory(id: Pair<String, Int>, receiveChannel: SendChannel<Story<*, *>?>)
 }
 
 data class Revision<out V : Any>(
@@ -43,78 +49,81 @@ fun <T : Any> storyEnding(value: T?): StoryEnding {
 
 fun storyEndingNone() = StoryEnding.None(Unit)
 
-interface RevisionScope<V1 : Any, A1 : Any> {
-    val vision: V1
-    val action: A1
+interface RevisionScope<out V : Any, A : Any> {
+    val vision: V
+    val action: A
 }
 
 @Suppress("unused")
-fun <V : Any, V1 : V, A1 : Any> RevisionScope<V1, A1>.give(nextVision: V): Revision<V> {
-    return Revision(nextVision)
-}
+fun <V : Any, V1 : V, A : Any> RevisionScope<V1, A>.give(nextVision: V) = Revision(nextVision)
 
 @Suppress("unused")
-fun <V : Any, V1 : V, A1 : Any> RevisionScope<V1, A1>.give(
-    vision: V,
-    vararg wish: Wish
-): Revision<V> = Revision(vision, wish.toList())
+fun <V : Any, V1 : V, A : Any> RevisionScope<V1, A>.give(
+    vision: V, vararg wish: Wish
+) = Revision(vision, wish.toList())
 
-class StoryBeat<V : Any, V1 : V, A1 : Any>(
+class StoryBeat<V : Any, V1 : V, A : Any>(
     val visionClass: Class<V1>,
-    val actionClass: Class<A1>,
-    val revise: RevisionScope<V1, A1>.() -> Revision<V>
+    val actionClass: Class<A>,
+    val revise: RevisionScope<V1, A>.() -> Revision<V>
 ) {
-    fun <A : Any> produce(vision: V, action: A): Revision<V> {
-        val scope = object : RevisionScope<V1, A1> {
+    fun produce(vision: V, action: Any): Revision<V> {
+        val scope = object : RevisionScope<V1, A> {
             override val vision: V1 by lazy { visionClass.cast(vision) }
-            override val action: A1 by lazy { actionClass.cast(action) }
+            override val action: A by lazy { actionClass.cast(action) }
         }
         return revise(scope)
     }
 }
 
-interface StoryScope<V : Any, A : Any> {
+interface StoryScope<V : Any> {
     val beats: MutableList<StoryBeat<V, *, *>>
-    var ending: ((V) -> StoryEnding)?
+    var ending: (V) -> StoryEnding
+    var cancel: () -> Any?
 }
 
 @Suppress("unused")
-fun <V : Any, A : Any, V1 : V, A1 : A> StoryScope<V, A>.take(
+fun <V : Any, V1 : V, A : Any> StoryScope<V>.on(
     visionClass: Class<V1>,
-    actionClass: Class<A1>,
-    revise: RevisionScope<V1, A1>.() -> Revision<V>
+    actionClass: Class<A>,
+    revise: RevisionScope<V1, A>.() -> Revision<V>
 ) {
     beats.add(StoryBeat(visionClass, actionClass, revise))
 }
 
-inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
+inline fun <V : Any, reified E : Any> storyOf(
     edge: Edge,
     name: String,
-    noinline init: StoryScope<V, A>.() -> V
-): Story<V, A, E> {
-    val scope = (object : StoryScope<V, A> {
+    noinline init: StoryScope<V>.() -> V
+): Story<V, E> {
+    val scope = (object : StoryScope<V> {
         override val beats = mutableListOf<StoryBeat<V, *, *>>()
-        override var ending: ((V) -> StoryEnding)? = null
+        override var ending: (V) -> StoryEnding = { StoryEnding.None() }
+        override var cancel: () -> Any? = { null }
     })
     val start = init(scope)
-    val end = scope.ending?.let { it } ?: StoryEnding::None
+    val end = scope.ending
     val beats = scope.beats.associateBy { it.visionClass to it.actionClass }
-    return storyOf(edge, name, start, end, { vision, action, _ ->
-        val key = vision::class.java to action::class.java
-        beats[key]?.produce(vision, action) ?: fallbackRevision(vision, action)
-    })
+    return storyOf(edge, name, start, end,
+        cancel = { scope.cancel() },
+        revise = { vision, action, _ ->
+            val key = vision::class.java to action::class.java
+            val beat = beats[key]
+            beat?.produce(vision, action) ?: fallbackRevision(vision, action)
+        })
 }
 
-inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
+inline fun <V : Any, reified E : Any> storyOf(
     edge: Edge,
     name: String,
     start: V,
     noinline end: (V) -> StoryEnding,
-    noinline revise: (V, A, Edge) -> Revision<V>
-): Story<V, A, E> {
+    noinline cancel: () -> Any?,
+    noinline revise: (V, Any, Edge) -> Revision<V>
+): Story<V, E> {
     val visions = ConflatedBroadcastChannel(start)
     val endings = ConflatedBroadcastChannel<E?>()
-    val actions = Channel<A>(10)
+    val actions = Channel<Any>(10)
     GlobalScope.launch {
         println("Story/$name launched")
         actions.consumeEach { action ->
@@ -123,11 +132,11 @@ inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
                 revision.wishes.forEach { wish ->
                     edge.well.addWill(when (wish) {
                         is Wish.Forget -> Will.Forget(wish)
-                        is Wish.Fetch<*, *, *> -> Will.Fetch(wish) {
-                            actions.offer(it as A)
+                        is Wish.Fetch<*, *> -> Will.Fetch(wish) {
+                            actions.offer(it)
                         }
-                        is Wish.Tell<*, *, *> -> Will.Tell(wish, edge) {
-                            actions.offer(it as A)
+                        is Wish.Tell<*, *> -> Will.Tell(wish, edge) {
+                            actions.offer(it)
                         }
                     })
                 }
@@ -140,16 +149,20 @@ inline fun <V : Any, reified A : Any, reified E : Any> storyOf(
             println("Story/$name vision: ${visions.value}")
         }
     }
-    return object : Story<V, A, E> {
+    return object : Story<V, E> {
         override val name = name
 
         override fun visions(): ReceiveChannel<V> = visions.openSubscription()
 
-        override fun offer(action: A) {
+        override fun ending(): ReceiveChannel<E?> = endings.openSubscription()
+
+        override fun offer(action: Any) {
             actions.offer(action)
         }
 
-        override fun ending(): ReceiveChannel<E?> = endings.openSubscription()
+        override fun cancelAction(): Any? {
+            return cancel()
+        }
     }
 }
 
@@ -160,12 +173,6 @@ data class WishId(val name: String, val number: Int) {
 interface Parameterized<P : Any> {
     val paramsClass: Class<P>
     val params: P
-}
-
-interface Actionable<R, A> {
-    val resultClass: Class<R>
-    val actionClass: Class<A>
-    val actionOnResult: (Result<R>) -> A
 }
 
 interface Fetcher<P : Any, R : Any> {
@@ -195,19 +202,18 @@ sealed class Wish {
         override val id: WishId
     ) : Wish()
 
-    data class Fetch<P : Any, R : Any, A : Any>(
+    data class Fetch<P : Any, R : Any>(
         val service: WishService.Fetch<P, R>,
         val number: Int,
         override val params: P,
-        override val actionClass: Class<A>,
-        override val actionOnResult: (Result<R>) -> A
-    ) : Wish(), Parameterized<P>, Fetcher<P, R>, Actionable<R, A> {
+        val actionOnResult: (Result<R>) -> Any
+    ) : Wish(), Parameterized<P>, Fetcher<P, R> {
         override val id by lazy { WishId(service.name, number) }
         override val paramsClass: Class<P> = service.paramsClass
         override val resultClass: Class<R> = service.resultClass
         override val resultOnParams = service.resultOnParams
 
-        fun action(): A {
+        fun action(): Any {
             val result = try {
                 Result.success(resultOnParams.invoke(params))
             } catch (e: Throwable) {
@@ -217,18 +223,17 @@ sealed class Wish {
         }
     }
 
-    data class Tell<V : Any, E : Any, A2 : Any>(
+    data class Tell<V : Any, E : Any>(
         val number: Int,
-        override val paramsClass: Class<Story<V, *, E>>,
-        override val params: Story<V, *, E>,
+        override val paramsClass: Class<Story<V, E>>,
+        override val params: Story<V, E>,
         val resultClass: Class<E>,
-        val actionClass: Class<A2>,
-        val actionOnSuccess: (E) -> A2,
-        val actionOnFailure: (Throwable) -> A2
-    ) : Wish(), Parameterized<Story<V, *, E>> {
+        val actionOnSuccess: (E) -> Any,
+        val actionOnFailure: (Throwable) -> Any
+    ) : Wish(), Parameterized<Story<V, E>> {
         override val id = WishId("story-${params.name}-ending", number)
 
-        suspend fun action(): A2 =
+        suspend fun action(): Any =
             try {
                 val ending = params.ending().receive()
                 if (ending == null) throw (Exception("Cancelled"))
@@ -240,49 +245,48 @@ sealed class Wish {
 }
 
 
-inline fun <V : Any, reified E : Any, reified A2 : Any, A2A : A2, A2B : A2> Story<V, *, E>.toWish(
-    noinline onSuccess: (E) -> A2A,
-    noinline onFailure: (Throwable) -> A2B
-): Wish.Tell<V, E, A2> {
+inline fun <V : Any, reified E : Any> Story<V, E>.toWish(
+    noinline onSuccess: (E) -> Any,
+    noinline onFailure: (Throwable) -> Any
+): Wish.Tell<V, E> {
     return Wish.Tell(
         number = Random.nextInt().absoluteValue,
         paramsClass = javaClass,
         params = this,
         resultClass = E::class.java,
-        actionClass = A2::class.java,
         actionOnSuccess = onSuccess,
         actionOnFailure = onFailure
     )
 }
 
-sealed class Will<P : Any, R : Any, A : Any>(val wishId: WishId) {
+sealed class Will<P : Any, R : Any>(val wishId: WishId) {
 
     val name: String
         get() = wishId.name
 
     data class Forget(
         val wish: Wish.Forget
-    ) : Will<Void, Void, Void>(wish.id)
+    ) : Will<Void, Void>(wish.id)
 
-    data class Fetch<P : Any, R : Any, A : Any>(
-        val wish: Wish.Fetch<P, R, A>,
-        val sendAction: (A) -> Unit
-    ) : Will<P, R, A>(wish.id) {
+    data class Fetch<P : Any, R : Any>(
+        val wish: Wish.Fetch<P, R>,
+        val sendAction: (Any) -> Unit
+    ) : Will<P, R>(wish.id) {
 
-        fun fulfill(checkSend: (A) -> Boolean) {
+        fun fulfill(checkSend: (Any) -> Boolean) {
             wish.action().let {
                 if (checkSend(it)) sendAction(it)
             }
         }
     }
 
-    data class Tell<V : Any, E : Any, A2 : Any>(
-        val wish: Wish.Tell<V, E, A2>,
+    data class Tell<V : Any, E : Any>(
+        val wish: Wish.Tell<V, E>,
         val edge: Edge,
-        val sendAction: (A2) -> Unit
-    ) : Will<V, E, A2>(wish.id) {
+        val sendAction: (Any) -> Unit
+    ) : Will<V, E>(wish.id) {
 
-        suspend fun fulfill(checkSend: (A2) -> Boolean) {
+        suspend fun fulfill(checkSend: (Any) -> Boolean) {
             edge.project(wish.params)
             wish.action().let { if (checkSend(it)) sendAction(it) }
         }
@@ -291,7 +295,7 @@ sealed class Will<P : Any, R : Any, A : Any>(val wishId: WishId) {
 
 class WishWell : CoroutineScope by GlobalScope {
     private sealed class Msg {
-        data class AddWill(val will: Will<*, *, *>) : Msg()
+        data class AddWill(val will: Will<*, *>) : Msg()
         data class DropWill(val wishId: WishId) : Msg()
     }
 
@@ -311,7 +315,7 @@ class WishWell : CoroutineScope by GlobalScope {
                     jobs.remove(will.wishId)?.apply { cancel() }
                     when (will) {
                         is Will.Forget -> Unit
-                        is Will.Fetch<*, *, *> -> {
+                        is Will.Fetch<*, *> -> {
                             val ready = Channel<Unit>(1)
                             jobs[will.wishId] = launch {
                                 ready.receive()
@@ -324,7 +328,7 @@ class WishWell : CoroutineScope by GlobalScope {
                             }
                             ready.send(Unit)
                         }
-                        is Will.Tell<*, *, *> -> {
+                        is Will.Tell<*, *> -> {
                             val ready = Channel<Unit>(1)
                             jobs[will.wishId] = launch {
                                 ready.receive()
@@ -347,7 +351,7 @@ class WishWell : CoroutineScope by GlobalScope {
         }
     }
 
-    fun addWill(will: Will<*, *, *>) {
+    fun addWill(will: Will<*, *>) {
         msgs.offer(Msg.AddWill(will))
     }
 

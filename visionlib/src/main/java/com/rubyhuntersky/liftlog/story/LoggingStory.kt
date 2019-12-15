@@ -5,33 +5,34 @@ package com.rubyhuntersky.liftlog.story
 import java.util.*
 import java.util.concurrent.TimeUnit
 
-sealed class LoggingVision {
-    data class Loaded(
-        val days: List<LogDay>,
-        val options: List<MoveOption>
-    ) : LoggingVision() {
-        fun addAction() = LoggingAction.AddMovement as LoggingAction
-    }
-}
+object LoggingStory {
 
-sealed class LoggingAction {
-    object AddMovement : LoggingAction()
-    data class ReceiveMovement(val movement: Movement) : LoggingAction()
-    data class Ignore(val ignore: Any) : LoggingAction()
-}
-
-fun loggingStory(edge: Edge): Story<LoggingVision, LoggingAction, Void> {
-    return storyOf(edge, "logging") {
-        take(LoggingVision.Loaded::class.java, LoggingAction.AddMovement::class.java) {
-            val suggested = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
-            val addMovement = movementStory(suggested, edge)
-            give(vision, addMovement.toWish(LoggingAction::ReceiveMovement, LoggingAction::Ignore))
+    sealed class Vision {
+        data class Loaded(
+            val days: List<LogDay>,
+            val options: List<MoveOption>
+        ) : Vision() {
+            fun addAction() = Action.AddMovement as Any
         }
-        take(LoggingVision.Loaded::class.java, LoggingAction.ReceiveMovement::class.java) {
+    }
+
+    private sealed class Action {
+        object AddMovement : Action()
+        data class ReceiveMovement(val movement: Movement) : Action()
+        data class Ignore(val ignore: Any) : Action()
+    }
+
+    operator fun invoke(edge: Edge): Story<Vision, Void> = storyOf(edge, "logging") {
+        on(Vision.Loaded::class.java, Action.AddMovement::class.java) {
+            val suggested = Movement(Direction.Dips, Force.Lbs(100), Distance.Reps(5))
+            val addMovement = MovementStory(suggested, edge)
+            give(vision, addMovement.toWish(Action::ReceiveMovement, Action::Ignore))
+        }
+        on(Vision.Loaded::class.java, Action.ReceiveMovement::class.java) {
             val newDays = listOf(vision.days.first().addMovement(action.movement, Date().time))
             give(vision.copy(days = newDays))
         }
-        LoggingVision.Loaded(fetchDays(), emptyList())
+        Vision.Loaded(fetchDays(), emptyList())
     }
 }
 

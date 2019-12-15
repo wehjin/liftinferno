@@ -1,13 +1,16 @@
+@file:Suppress("EXPERIMENTAL_API_USAGE")
+
 package com.rubyhuntersky.liftlog
 
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.rubyhuntersky.liftlog.Chatter.*
-import com.rubyhuntersky.liftlog.story.*
+import com.rubyhuntersky.liftlog.story.LogDay
+import com.rubyhuntersky.liftlog.story.LoggingStory
+import com.rubyhuntersky.liftlog.story.Movement
+import com.rubyhuntersky.liftlog.story.Round
 import kotlinx.android.synthetic.main.activity_main.*
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.FlowPreview
 import java.util.*
 
 class Chatter {
@@ -22,14 +25,10 @@ class Chatter {
     }
 }
 
-@FlowPreview
-@ExperimentalCoroutinesApi
-private val loggingStory = loggingStory(MainEdge)
+private val loggingStory = LoggingStory(MainEdge)
 
-@ExperimentalCoroutinesApi
 class MainActivity : AppCompatActivity() {
 
-    @FlowPreview
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         MainEdge.activeFragmentManager = this.supportFragmentManager
@@ -38,15 +37,15 @@ class MainActivity : AppCompatActivity() {
         renderStory(lifecycle, loggingStory, this::renderVision)
     }
 
-    private fun renderVision(vision: LoggingVision, post: (LoggingAction) -> Unit) {
-        require(vision is LoggingVision.Loaded)
+    private fun renderVision(vision: LoggingStory.Vision, post: (Any) -> Unit) {
+        require(vision is LoggingStory.Vision.Loaded)
         recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
         movementButton.setOnClickListener {
             post(vision.addAction())
         }
     }
 
-    private fun dialogParts(vision: LoggingVision.Loaded): List<Part> {
+    private fun dialogParts(vision: LoggingStory.Vision.Loaded): List<Part> {
         val now = Date()
         val visionParts = vision.days
             .sortedByDescending { it.startTime }

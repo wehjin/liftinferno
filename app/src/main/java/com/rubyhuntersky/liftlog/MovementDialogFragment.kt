@@ -8,7 +8,11 @@ import android.view.ViewGroup
 import android.widget.PopupMenu
 import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
-import com.rubyhuntersky.liftlog.story.*
+import com.rubyhuntersky.liftlog.story.Direction
+import com.rubyhuntersky.liftlog.story.Movement
+import com.rubyhuntersky.liftlog.story.MovementStory.Vision
+import com.rubyhuntersky.liftlog.story.Story
+import com.rubyhuntersky.liftlog.story.cancel
 import kotlinx.android.synthetic.main.fragment_add_movement.view.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -34,29 +38,28 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
         super.onCreate(savedInstanceState)
         story = renderStory(this, storyId, MainEdge) { vision, post ->
             when (vision) {
-                is MovementVision.Interacting -> {
+                is Vision.Interacting -> {
                     view?.let { view ->
-
                         view.directionTextView.renderDirection(vision.direction) {
-                            post(MovementAction.SetDirection(it))
+                            post(vision.directionAction(it))
                         }
                         view.weightEditText.render(vision.force?.toString() ?: "") {
                             val lbs = it.toIntOrNull()
-                            post(MovementAction.SetForce(lbs))
+                            post(vision.forceAction(lbs))
                         }
                         view.repsEditText.render(vision.distance?.toString() ?: "") {
                             val count = it.toIntOrNull()
-                            post(MovementAction.SetDistance(count))
+                            post(vision.distanceAction(count))
                         }
                         view.addButton.render(
                             onClick = if (vision.isReadyToAdd) {
-                                val function = { post(MovementAction.Add) }
+                                val function = { post(vision.addAction()) }
                                 function
                             } else null
                         )
                     }
                 }
-                is MovementVision.Dismissed -> dismiss()
+                is Vision.Dismissed -> dismiss()
             }
         }
     }
@@ -71,7 +74,7 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
 
     private var onDirectionPicked: ((direction: Direction) -> Unit)? = null
 
-    private lateinit var story: () -> Story<MovementVision, MovementAction, Movement>?
+    private lateinit var story: () -> Story<Vision, Movement>?
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -112,7 +115,7 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
     }
 
     override fun onDismiss(dialog: DialogInterface) {
-        story()?.offer(MovementAction.Cancel)
+        story()?.cancel()
         super.onDismiss(dialog)
     }
 
