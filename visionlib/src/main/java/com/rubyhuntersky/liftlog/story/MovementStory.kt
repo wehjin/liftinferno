@@ -36,7 +36,7 @@ object MovementStory {
         data class SetDirection(val direction: Direction) : Action()
     }
 
-    operator fun invoke(init: Movement, edge: Edge) =
+    operator fun invoke(edge: Edge, init: Movement) =
         storyOf<Vision, Movement>(edge, "add-movement") {
             on(Vision.Interacting::class.java, Action.Cancel::class.java) {
                 val newMovement = null
