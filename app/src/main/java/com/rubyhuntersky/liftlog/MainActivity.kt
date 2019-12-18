@@ -2,6 +2,7 @@
 
 package com.rubyhuntersky.liftlog
 
+import android.content.Context
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -10,7 +11,11 @@ import com.rubyhuntersky.liftlog.story.LogDay
 import com.rubyhuntersky.liftlog.story.LoggingStory
 import com.rubyhuntersky.liftlog.story.Movement
 import com.rubyhuntersky.liftlog.story.Round
+import com.rubyhuntersky.tomedb.Owner
+import com.rubyhuntersky.tomedb.Tomic
+import com.rubyhuntersky.tomedb.tomicOf
 import kotlinx.android.synthetic.main.activity_main.*
+import java.io.File
 import java.util.*
 import kotlin.time.ExperimentalTime
 
@@ -26,8 +31,17 @@ class Chatter {
     }
 }
 
-@ExperimentalTime
-private val loggingStory = LoggingStory(MainEdge)
+object Main {
+    private lateinit var tomic: Tomic
+
+    fun startTome(context: Context): Tomic {
+        if (!::tomic.isInitialized) {
+            val tomeDir = File(context.filesDir, "tome1")
+            tomic = tomicOf(tomeDir) { emptyList() }
+        }
+        return tomic
+    }
+}
 
 @ExperimentalTime
 class MainActivity : AppCompatActivity() {
@@ -37,6 +51,9 @@ class MainActivity : AppCompatActivity() {
         MainEdge.activeFragmentManager = this.supportFragmentManager
         setContentView(R.layout.activity_main)
         recyclerView.layoutManager = LinearLayoutManager(this).apply { reverseLayout = true }
+
+        val tomic = Main.startTome(this)
+        val loggingStory = LoggingStory(MainEdge, tomic)
         renderStory(lifecycle, loggingStory, this::renderVision)
     }
 
@@ -81,13 +98,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun dialogParts(movement: Movement, i: Int, last: Int): Part {
+    private fun dialogParts(movement: Owner<Date>, i: Int, last: Int): Part {
         val type = when {
             last <= 0 -> BubbleType.SOLO
             i == 0 -> BubbleType.TOP
             i == last -> BubbleType.BOTTOM
             else -> BubbleType.MIDDLE
         }
-        return Part.Bubble(movement.toString(), Side.RIGHT, type)
+        val text = movementText(movement)
+        return Part.Bubble(text, Side.RIGHT, type)
+    }
+
+    private fun movementText(movement: Owner<Date>): String {
+        val direction = movement[Movement.DIRECTION]!!
+        val force = movement[Movement.FORCE]
+        val distance = movement[Movement.DISTANCE]
+        return "${direction.name} $force × $distance"
     }
 }

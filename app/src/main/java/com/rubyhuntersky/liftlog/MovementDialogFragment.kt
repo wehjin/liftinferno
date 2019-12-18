@@ -9,13 +9,14 @@ import android.widget.PopupMenu
 import android.widget.TextView
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 import com.rubyhuntersky.liftlog.story.Direction
-import com.rubyhuntersky.liftlog.story.Movement
 import com.rubyhuntersky.liftlog.story.MovementStory.Vision
 import com.rubyhuntersky.liftlog.story.Story
 import com.rubyhuntersky.liftlog.story.cancel
+import com.rubyhuntersky.tomedb.Owner
 import kotlinx.android.synthetic.main.fragment_add_movement.view.*
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import java.util.*
 
 class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
 
@@ -74,7 +75,7 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
 
     private var onDirectionPicked: ((direction: Direction) -> Unit)? = null
 
-    private lateinit var story: () -> Story<Vision, Movement>?
+    private lateinit var story: () -> Story<Vision, Owner<Date>>?
 
     override fun onCreateView(
         inflater: LayoutInflater,

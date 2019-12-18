@@ -1,5 +1,8 @@
 package com.rubyhuntersky.liftlog.story
 
+import com.rubyhuntersky.tomedb.Tomic
+import com.rubyhuntersky.tomedb.modOwnersOf
+import com.rubyhuntersky.tomedb.tomicOf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.util.*
@@ -16,27 +19,61 @@ internal class HistoryTest {
     private val hourAgo =
         now - Duration.convert(1.0, DurationUnit.HOURS, DurationUnit.MILLISECONDS).toLong()
 
-    @Test
-    fun addMovement() {
-        val movement = Movement(now, Direction.PullUps, Force.Lbs(100), Distance.Reps(5))
-        val history = History(emptySet()).add(movement)
-        assertEquals(1, history.movements.size)
+    private fun start(name: String): Tomic {
+        val dir = createTempDir("$name-", "historyTest").also { println("Location: $it") }
+        return tomicOf(dir) { emptyList() }
     }
 
     @Test
     fun daySpotting() {
-        val movement1 = Movement(now, Direction.PullUps, Force.Lbs(100), Distance.Reps(3))
-        val movement2 = Movement(yesterday, Direction.PullUps, Force.Lbs(100), Distance.Reps(1))
-        val history = History(setOf(movement1, movement2))
+        val tomic = start("day-spotting")
+        val movements = tomic.modOwnersOf(Movement.WHEN) {
+            mods = listOf(
+                modMovement(
+                    ent = 1000L,
+                    date = Date(now),
+                    direction = Direction.PullUps,
+                    force = Force.Lbs(100),
+                    distance = Distance.Reps(3)
+                ),
+                modMovement(
+                    ent = 1001L,
+                    date = Date(yesterday),
+                    direction = Direction.PullUps,
+                    force = Force.Lbs(100),
+                    distance = Distance.Reps(1)
+                )
+            ).flatten()
+            owners.values.toSet()
+        }
+        val history = History(movements)
         val days = history.logDays
         assertEquals(2, days.size)
     }
 
     @Test
     fun largeGapRoundDetection() {
-        val movement1 = Movement(now, Direction.PullUps, Force.Lbs(100), Distance.Reps(3))
-        val movement2 = Movement(hourAgo, Direction.PullUps, Force.Lbs(100), Distance.Reps(1))
-        val history = History(setOf(movement1, movement2))
+        val tomic = start("large-gap-round-detection")
+        val movements = tomic.modOwnersOf(Movement.WHEN) {
+            mods = listOf(
+                modMovement(
+                    ent = 1000L,
+                    date = Date(now),
+                    direction = Direction.PullUps,
+                    force = Force.Lbs(100),
+                    distance = Distance.Reps(3)
+                ),
+                modMovement(
+                    ent = 1001L,
+                    date = Date(hourAgo),
+                    direction = Direction.PullUps,
+                    force = Force.Lbs(100),
+                    distance = Distance.Reps(1)
+                )
+            ).flatten()
+            owners.values.toSet()
+        }
+        val history = History(movements)
         val rounds = history.logDays.first().rounds
         assertEquals(2, rounds.size)
     }
