@@ -18,4 +18,7 @@
     <item
         android:id="@+id/pick_rows"
         android:title="@string/rows" />
+    <item
+        android:id="@+id/pick_other"
+        android:title="@string/other" />
 </menu>

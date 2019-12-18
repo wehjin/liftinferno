@@ -7,4 +7,5 @@ enum class Direction {
     Hinges,
     PushUps,
     Rows,
+    Other
 }

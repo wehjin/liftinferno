@@ -103,6 +103,7 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
         R.id.pick_hinges -> Direction.Hinges
         R.id.pick_pushups -> Direction.PushUps
         R.id.pick_rows -> Direction.Rows
+        R.id.pick_other -> Direction.Other
         else -> TODO()
     }
 
@@ -113,6 +114,7 @@ class MovementDialogFragment : BottomSheetDialogFragment(), RenderingScope {
         Direction.Hinges -> R.string.hinges
         Direction.PushUps -> R.string.pushups
         Direction.Rows -> R.string.rows
+        Direction.Other -> R.string.other
     }
 
     override fun onDismiss(dialog: DialogInterface) {

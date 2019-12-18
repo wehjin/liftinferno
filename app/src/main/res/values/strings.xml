@@ -1,9 +1,10 @@
 <resources>
-    <string name="app_name">Liftlog</string>
+    <string name="app_name">Lift Inferno</string>
     <string name="pullups">Pullups</string>
     <string name="squats">Squats</string>
     <string name="dips">Dips</string>
     <string name="hinges">Hinges</string>
     <string name="pushups">Pushups</string>
     <string name="rows">Rows</string>
+    <string name="other">Other</string>
 </resources>
