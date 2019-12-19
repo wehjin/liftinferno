@@ -1,9 +1,9 @@
 package com.rubyhuntersky.liftlog.story
 
+import com.rubyhuntersky.liftlog.millitime.milliTimePerHalfHour
+import com.rubyhuntersky.liftlog.millitime.milliDateOfTime
 import com.rubyhuntersky.tomedb.Owner
 import java.util.*
-import kotlin.time.Duration
-import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
@@ -11,7 +11,7 @@ data class History(
     val movements: Set<Owner<Date>>
 ) {
     val logDays: List<LogDay> by lazy {
-        val groupedByDay = movements.groupBy { toMilliDate(milliTime = it[Movement.WHEN]!!.time) }
+        val groupedByDay = movements.groupBy { milliDateOfTime(milliTime = it[Movement.WHEN]!!.time) }
         val sorted = groupedByDay.entries.sortedBy { it.key }
         val rounds = sorted.map { (_, movements) ->
             toRounds(movements)
@@ -45,14 +45,3 @@ private fun toRounds(dayMovements: List<Owner<Date>>): List<Round> {
     val lastRound = if (preround.isNotEmpty()) Round(milliTime, preround) else null
     return lastRound?.let { rounds + it } ?: rounds
 }
-
-@ExperimentalTime
-fun toMilliDate(milliTime: Long): Long = milliTime / milliTimePerDay
-
-@ExperimentalTime
-private val milliTimePerDay =
-    Duration.convert(1.0, DurationUnit.DAYS, DurationUnit.MILLISECONDS).toLong()
-
-@ExperimentalTime
-private val milliTimePerHalfHour =
-    Duration.convert(30.0, DurationUnit.MINUTES, DurationUnit.MILLISECONDS).toLong()

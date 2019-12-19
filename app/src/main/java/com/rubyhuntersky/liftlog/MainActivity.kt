@@ -59,60 +59,62 @@ class MainActivity : AppCompatActivity() {
 
     private fun renderVision(vision: LoggingStory.Vision, post: (Any) -> Unit) {
         require(vision is LoggingStory.Vision.Loaded)
-        recyclerView.adapter = ChatterPartsAdapter(dialogParts(vision))
+        recyclerView.adapter = ChatterPartsAdapter(vision.asParts())
         movementButton.setOnClickListener {
             post(vision.addAction())
         }
     }
-
-    private fun dialogParts(vision: LoggingStory.Vision.Loaded): List<Part> {
-        val now = Date()
-        val visionParts = vision.history.logDays
-            .sortedByDescending { it.startTime }
-            .flatMap { dialogParts(it, now).reversed() }
+}
 
 
-        val infernoParts = listOf(
-            Part.Speaker("Inferno", Side.LEFT),
-            Part.Bubble("Squats: Rest 34s", Side.LEFT, BubbleType.SOLO)
-        ).reversed()
-        val infernoTitle =
-            if (visionParts.isEmpty()) listOf(Part.Timestamp(now, now)) else emptyList<Part>()
+@ExperimentalTime
+private fun LoggingStory.Vision.Loaded.asParts(): List<Part> {
+    val now = Date()
 
-        return listOf(Part.Guard) + infernoParts + infernoTitle + visionParts + Part.Guard
+    val visionParts = this.history.logDays
+        .sortedByDescending { it.startTime }
+        .flatMap { it.toParts(now).reversed() }
+
+    val infernoParts = listOf(
+        Part.Speaker("Inferno", Side.LEFT),
+        Part.Bubble("Squats: Rest 34s", Side.LEFT, BubbleType.SOLO)
+    ).reversed()
+    val infernoTitle =
+        if (visionParts.isEmpty()) listOf(Part.Timestamp(now, now)) else emptyList<Part>()
+
+    return listOf(Part.Guard) + infernoParts + infernoTitle + visionParts + Part.Guard
+}
+
+private fun LogDay.toParts(now: Date): List<Part> {
+    val startTime = startTime
+    val initial = listOf(Part.Timestamp(Date(startTime), now) as Part)
+    return rounds.foldIndexed(initial) { i, sum, round ->
+        sum + round.toParts(i)
     }
+}
 
 
-    private fun dialogParts(logDay: LogDay, now: Date): List<Part> {
-        val startTime = logDay.startTime
-        val initial = listOf(Part.Timestamp(Date(startTime), now) as Part)
-        return logDay.rounds.foldIndexed(initial) { i, sum, round ->
-            sum + dialogParts(round, i)
-        }
+private fun Round.toParts(index: Int): List<Part> {
+    val speaker = Part.Speaker("Round ${index + 1}", Side.RIGHT) as Part
+    return listOf(speaker) + movements.mapIndexed { i, movement ->
+        movement.toParts(i, movements.lastIndex)
     }
+}
 
-    private fun dialogParts(round: Round, index: Int): List<Part> {
-        val speaker = Part.Speaker("Round ${index + 1}", Side.RIGHT) as Part
-        return listOf(speaker) + round.movements.mapIndexed { i, movement ->
-            dialogParts(movement, i, round.movements.lastIndex)
-        }
+private fun Owner<Date>.toParts(i: Int, last: Int): Part {
+    val type = when {
+        last <= 0 -> BubbleType.SOLO
+        i == 0 -> BubbleType.TOP
+        i == last -> BubbleType.BOTTOM
+        else -> BubbleType.MIDDLE
     }
+    val text = this.movementText()
+    return Part.Bubble(text, Side.RIGHT, type)
+}
 
-    private fun dialogParts(movement: Owner<Date>, i: Int, last: Int): Part {
-        val type = when {
-            last <= 0 -> BubbleType.SOLO
-            i == 0 -> BubbleType.TOP
-            i == last -> BubbleType.BOTTOM
-            else -> BubbleType.MIDDLE
-        }
-        val text = movementText(movement)
-        return Part.Bubble(text, Side.RIGHT, type)
-    }
-
-    private fun movementText(movement: Owner<Date>): String {
-        val direction = movement[Movement.DIRECTION]!!
-        val force = movement[Movement.FORCE]
-        val distance = movement[Movement.DISTANCE]
-        return "${direction.name} $force × $distance"
-    }
+private fun Owner<Date>.movementText(): String {
+    val direction = this[Movement.DIRECTION]!!
+    val force = this[Movement.FORCE]
+    val distance = this[Movement.DISTANCE]
+    return "${direction.name} $force × $distance"
 }

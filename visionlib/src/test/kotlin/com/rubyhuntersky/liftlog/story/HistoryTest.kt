@@ -1,23 +1,23 @@
 package com.rubyhuntersky.liftlog.story
 
+import com.rubyhuntersky.liftlog.millitime.milliTimeFloor
+import com.rubyhuntersky.liftlog.millitime.milliTimePerDay
+import com.rubyhuntersky.liftlog.millitime.milliTimePerHour
+import com.rubyhuntersky.liftlog.millitime.milliTimePerMinute
 import com.rubyhuntersky.tomedb.Tomic
 import com.rubyhuntersky.tomedb.modOwnersOf
 import com.rubyhuntersky.tomedb.tomicOf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.util.*
-import kotlin.time.Duration
-import kotlin.time.DurationUnit
 import kotlin.time.ExperimentalTime
 
 @ExperimentalTime
 internal class HistoryTest {
 
-    private val now = Date().time
-    private val yesterday =
-        now - Duration.convert(1.0, DurationUnit.DAYS, DurationUnit.MILLISECONDS).toLong()
-    private val hourAgo =
-        now - Duration.convert(1.0, DurationUnit.HOURS, DurationUnit.MILLISECONDS).toLong()
+    private val now = milliTimeFloor(Date().time) + 5 * milliTimePerHour
+    private val yesterday = now - milliTimePerDay
+    private val hourAgo = now - milliTimePerHour
 
     private fun start(name: String): Tomic {
         val dir = createTempDir("$name-", "historyTest").also { println("Location: $it") }
@@ -55,17 +55,18 @@ internal class HistoryTest {
     fun largeGapRoundDetection() {
         val tomic = start("large-gap-round-detection")
         val movements = tomic.modOwnersOf(Movement.WHEN) {
+            val time = now + 10 * milliTimePerMinute
             mods = listOf(
                 modMovement(
                     ent = 1000L,
-                    date = Date(now),
+                    date = Date(time),
                     direction = Direction.PullUps,
                     force = Force.Lbs(100),
                     distance = Distance.Reps(3)
                 ),
                 modMovement(
                     ent = 1001L,
-                    date = Date(hourAgo),
+                    date = Date(time + 40 * milliTimePerMinute),
                     direction = Direction.PullUps,
                     force = Force.Lbs(100),
                     distance = Distance.Reps(1)
@@ -74,7 +75,9 @@ internal class HistoryTest {
             owners.values.toSet()
         }
         val history = History(movements)
-        val rounds = history.logDays.first().rounds
+        val days = history.logDays
+        assertEquals(1, days.size)
+        val rounds = days.first().rounds
         assertEquals(2, rounds.size)
     }
 }
